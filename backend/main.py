@@ -40,4 +40,4 @@ def analyze_tender(tender: dict):
         "tender": tender,
         "status": "received"
     }
-```
+
