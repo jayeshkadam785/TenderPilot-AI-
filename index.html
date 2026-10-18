@@ -373,7 +373,7 @@
 
   const S = {
     view: "dashboard", cur: null, tab: "overview",
-    profile: null, tenders: [], approvals: [], log: [], runs: [], seq: 1, history: [], notifOpen: false, analysis: null,
+    profile: null, feed: [], tenders: [], approvals: [], log: [], runs: [], seq: 1, history: [], notifOpen: false, analysis: null,
     f: { q: "", status: "all", cat: "all" },
     dark: matchMedia("(prefers-color-scheme: dark)").matches
   };
@@ -675,10 +675,11 @@
 
   /* ---- Saving and loading (browser localStorage, this browser only) ---- */
   function snapshotState() {
-    return JSON.parse(JSON.stringify({ profile: S.profile, tenders: S.tenders, approvals: S.approvals, log: S.log.slice(0, 300), runs: S.runs, seq: S.seq, history: S.history.slice(-200) }));
+    return JSON.parse(JSON.stringify({ feed: S.feed, profile: S.profile, tenders: S.tenders, approvals: S.approvals, log: S.log.slice(0, 300), runs: S.runs, seq: S.seq, history: S.history.slice(-200) }));
   }
   function restore(d) {
     const date = v => v ? new Date(v) : null;
+    S.feed = d.feed || [];
     S.profile = d.profile || null;
     S.tenders = (d.tenders || []).map(t => mk(Object.assign({}, t, { retrieved: date(t.retrieved) || new Date() })));
     S.approvals = (d.approvals || []).map(a => Object.assign({}, a, { at: date(a.at), decidedAt: date(a.decidedAt) }));
@@ -1176,6 +1177,91 @@
       <section class="card card-b" style="margin-top:var(--s2)"><div class="card-h" style="padding:0 0 14px;border:0"><h2>Runs</h2></div>${S.runs.length ? `<ul class="list">${S.runs.map(r => `<li><div><div class="strong">${r.id}</div><div class="muted sm">${dt(r.at)}</div></div>${chip(r.count + " tender" + (r.count === 1 ? "" : "s"), "t-brand")}</li>`).join("")}</ul>` : `<div class="empty"><div class="ei">${ic("bolt", 22)}</div><b>No runs yet</b><span>Use Run agent to check your tenders.</span></div>`}</section>`;
   }
 
+  /* ---- Recommended feed: listings matched to your profile ---- */
+  const SAMPLE_FEED = [
+    { title: "Website development services", dept: "Maharashtra Government", category: "IT services", region: "Maharashtra", value: 1200000, closing: "2026-11-05", notice: "Bids online. EMD of Rs. 24,000 required. Minimum 2 years experience." },
+    { title: "Office furniture supply", dept: "Pune Municipal Corporation", category: "Supplies", region: "Maharashtra", value: 400000, closing: "2026-11-02", notice: "Supply of office furniture. Submit online." },
+    { title: "Road repair work", dept: "PWD Maharashtra", category: "Construction", region: "Maharashtra", value: 8000000, closing: "2026-11-10", notice: "Contractor registration required. EMD Rs. 80,000." },
+    { title: "Cloud hosting renewal", dept: "State IT Department", category: "IT services", region: "Gujarat", value: 800000, closing: "2026-10-30", notice: "Submit online. EMD of Rs. 24,000." }
+  ];
+
+  function parseFeed(text) {
+    return lines(text).map(ln => {
+      const [title = "", category = "", region = "", value = "", closing = "", ...rest] = ln.split("|").map(s => s.trim());
+      const v = value.replace(/[₹,\s]/g, "");
+      const cd = new Date(closing);
+      return {
+        fid: "F" + String(S.seq++).padStart(3, "0"), title, dept: "", category, region,
+        value: v && !isNaN(Number(v)) ? Number(v) : null,
+        closing: closing && !isNaN(cd) ? cd.toISOString() : null,
+        notice: rest.join(" | "), source: ""
+      };
+    }).filter(f => f.title);
+  }
+
+  function matchFeed(f) {
+    const p = S.profile;
+    if (!p) return { ok: false, reasons: [], blocks: ["Business profile save nahi hai"] };
+    const reasons = [], blocks = [];
+    if (!f.category) blocks.push("Category listing mein nahi hai");
+    else if (f.category === p.category) reasons.push("Category match: " + f.category);
+    else blocks.push("Category alag hai: " + f.category);
+    const fr = (f.region || "").toLowerCase(), pr = (p.region || "").toLowerCase();
+    if (!fr) blocks.push("Region listing mein nahi hai");
+    else if (fr.includes(pr) || pr.includes(fr)) reasons.push("Region match: " + f.region);
+    else blocks.push("Region alag hai: " + f.region);
+    if (f.value == null) blocks.push("Value listing mein nahi hai");
+    else if (f.value >= p.min && f.value <= p.max) reasons.push("Budget ke andar: " + money(f.value));
+    else blocks.push("Budget ke bahar: " + money(f.value));
+    if (f.closing && new Date(f.closing) < new Date()) blocks.push("Deadline nikal chuki hai");
+    const emd = (f.notice || "").match(/EMD[^\d₹]{0,40}(?:₹|Rs\.?)\s*([\d,]+)/i);
+    if (emd) reasons.push("EMD " + money(Number(emd[1].replace(/,/g, ""))) + " (approval flag hoga)");
+    if (/registration|experience|turnover|certificate/i.test(f.notice || "")) reasons.push("Check manually: notice mein eligibility conditions hain");
+    return { ok: blocks.length === 0, reasons, blocks };
+  }
+
+  function vRecommended() {
+    const rows = S.feed.map(f => ({ f, m: matchFeed(f), added: S.tenders.some(t => t.feedId === f.fid) }));
+    rows.sort((a, b) => b.m.ok - a.m.ok);
+    const okCount = rows.filter(r => r.m.ok).length;
+    const profileNote = S.profile ? "" : `<div class="callout warn"><div class="ci">${ic("alert", 15)}</div><div><b>Profile needed.</b> Save your business profile first so listings can be matched.</div></div>`;
+    const list = rows.length ? rows.map(({ f, m, added }) => `
+      <div class="ap" style="border-left-color:${m.ok ? "var(--ok)" : "var(--line)"}">
+        <div class="tile" style="border-radius:12px">${ic(m.ok ? "target" : "x", 16)}</div>
+        <div class="body">
+          <div class="row" style="justify-content:space-between"><div class="strong">${esc(f.title)}</div>${m.ok ? chip("Recommended", "t-ok") : chip("Not a match", "t-bad")}</div>
+          <div class="muted sm">${esc(f.dept ? f.dept + " · " : "")}${esc(f.category || "Category not stated")} · ${esc(f.region || "Region not stated")} · ${f.value != null ? money(f.value) : "Value not stated"} · Closes ${f.closing ? dt(f.closing) : "not stated"}</div>
+          <ul class="sm" style="margin:8px 0 0 16px;padding:0">
+            ${m.reasons.map(r => `<li style="color:var(--ok)">${esc(r)}</li>`).join("")}
+            ${m.blocks.map(b => `<li style="color:var(--bad)">${esc(b)}</li>`).join("")}
+          </ul>
+          <div class="acts">
+            ${added ? chip("Already in my tenders", "t-muted") : m.ok ? `<button class="btn ok sm" data-a="feed-adopt" data-id="${f.fid}">Add to my tenders</button>` : ""}
+            <button class="btn ghost sm" data-a="feed-del" data-id="${f.fid}">Remove from feed</button>
+          </div>
+        </div>
+      </div>`).join("")
+      : `<div class="empty"><div class="ei">${ic("search", 22)}</div><b>No listings yet</b><span>Paste listings below or load the sample feed.</span></div>`;
+    return `<div class="page-h"><div><div class="eyebrow">For you</div><h1 class="h1">Recommended for me</h1><p class="sub">Run agent checks every listing in your feed against your business profile and explains each result. Nothing is added to your tenders until you choose it.</p></div>
+      <div class="row"><button class="btn primary" data-a="run">${ic("play", 14)} Run agent</button></div></div>
+      ${profileNote}
+      <div class="grid-kpi" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div class="card kpi"><div class="kpi-top"><span class="l">Listings in feed</span></div><div class="v">${S.feed.length}</div></div>
+        <div class="card kpi"><div class="kpi-top"><span class="l">Recommended</span></div><div class="v">${okCount}</div></div>
+        <div class="card kpi"><div class="kpi-top"><span class="l">Not a match</span></div><div class="v">${S.feed.length - okCount}</div></div>
+      </div>
+      <section class="card card-b stack">
+        <div class="section-t">Add listings to feed</div>
+        <form id="feedForm" class="stack">
+          <label class="fl">One listing per line: Title | Category | Region | Value (₹) | Closing (YYYY-MM-DD) | Notice text
+            <textarea class="inp" name="feed" rows="5" placeholder="Website development | IT services | Maharashtra | 1200000 | 2026-11-05 | EMD Rs. 24,000 required"></textarea></label>
+          <div class="row" style="justify-content:space-between"><button class="btn" type="button" data-a="feed-sample">Load sample feed</button>
+            <div class="row"><button class="btn ghost sm" type="button" data-a="feed-clear">Clear feed</button><button class="btn primary" type="submit">Add to feed</button></div></div>
+        </form>
+      </section>
+      <section class="card" style="margin-top:var(--s2)"><div class="card-h"><h2>Your matches</h2></div><div class="card-b stack">${list}</div></section>`;
+  }
+
   const DEF_TEST_PROFILE = { category: "IT services", region: "Maharashtra", min: 100000, max: 5000000 };
   const TC = [
     { id: "TC1", name: "Matching tender", input: "IT tender in Maharashtra, value inside budget, all 3 required files present", expected: "Pack COMPLETE; eligibility MATCH",
@@ -1245,11 +1331,11 @@
       <p class="sm muted" style="margin-top:12px">Fixtures are labelled SYNTHETIC and used only for testing.</p>`;
   }
 
-  const TITLES = { analytics: ["Analytics"], dashboard: ["Overview"], profile: ["Business profile"], tenders: ["Tender explorer"], add: ["Tender explorer", "Add tender"], detail: ["Tender explorer", "Tender"], documents: ["Document center"], approvals: ["Approval center"], activity: ["Agent activity"], tests: ["Test case lab"], analyzer: ["Tender analyzer"], compare: ["Tender comparison"], integrations: ["Integrations & data sources"] };
-  const VIEWS = { analytics: vAnalytics, dashboard: vDashboard, profile: vProfile, tenders: vTenders, add: vAdd, detail: vDetail, documents: vDocs, approvals: vApprovals, activity: vActivity, tests: vTests, analyzer: vAnalyzer, compare: vCompare, integrations: vIntegrations };
+  const TITLES = { recommended: ["Recommended for me"], analytics: ["Analytics"], dashboard: ["Overview"], profile: ["Business profile"], tenders: ["Tender explorer"], add: ["Tender explorer", "Add tender"], detail: ["Tender explorer", "Tender"], documents: ["Document center"], approvals: ["Approval center"], activity: ["Agent activity"], tests: ["Test case lab"], analyzer: ["Tender analyzer"], compare: ["Tender comparison"], integrations: ["Integrations & data sources"] };
+  const VIEWS = { recommended: vRecommended, analytics: vAnalytics, dashboard: vDashboard, profile: vProfile, tenders: vTenders, add: vAdd, detail: vDetail, documents: vDocs, approvals: vApprovals, activity: vActivity, tests: vTests, analyzer: vAnalyzer, compare: vCompare, integrations: vIntegrations };
   const NAV = [
     ["grp", "Workspace"], ["dashboard", "Overview", "dash"], ["profile", "Business profile", "user"], ["tenders", "Tender explorer", "search"], ["documents", "Document center", "folder"], ["approvals", "Approval center", "shield"],
-    ["grp", "AI tools"], ["analyzer", "Tender analyzer", "bolt"], ["compare", "Compare tenders", "chart"],
+    ["grp", "AI tools"], ["recommended", "Recommended for me", "target"], ["analyzer", "Tender analyzer", "bolt"], ["compare", "Compare tenders", "chart"],
     ["grp", "Operations"], ["analytics", "Analytics", "chart"], ["activity", "Agent activity", "pulse"], ["tests", "Test case lab", "flask"], ["integrations", "Integrations", "shield"]
   ];
 
@@ -1279,8 +1365,38 @@
     tab: el => { S.tab = el.dataset.v; render(); },
     setf: el => { S.f[el.dataset.k] = el.dataset.v; render(); },
     theme: () => { S.dark = !S.dark; document.documentElement.dataset.theme = S.dark ? "dark" : "light"; render(); },
-    run: () => runAgent(),
+    run: () => {
+      if (!S.profile) { toast("Save your business profile first"); S.view = "profile"; render(); return; }
+      if (S.tenders.length) runAgent();
+      const ok = S.feed.filter(f => matchFeed(f).ok).length;
+      logIt(`Feed check: ${S.feed.length} listing(s), ${ok} recommended`, "info", { step: "Feed", source: "Recommended feed" });
+      S.view = "recommended"; render();
+    },
     demo: () => loadDemo(),
+    "feed-adopt": el => {
+      const f = S.feed.find(x => x.fid === el.dataset.id);
+      if (!f || !matchFeed(f).ok) { toast("This listing does not match your profile"); return; }
+      const t = mk({ id: "TN-" + String(S.seq++).padStart(3, "0"), title: f.title, dept: f.dept, category: f.category, region: f.region, value: f.value, closing: f.closing, sourceUrl: f.source || "", notice: f.notice, origin: "feed", feedId: f.fid });
+      S.tenders.push(t);
+      logIt(`Added ${t.id} from recommended feed: ${t.title}`, "ok", { step: "Feed", source: "Your choice" });
+      toast("Added to my tenders"); S.view = "tenders"; render();
+    },
+    "feed-del": el => {
+      const f = S.feed.find(x => x.fid === el.dataset.id);
+      S.feed = S.feed.filter(x => x.fid !== el.dataset.id);
+      logIt(`Removed listing from feed: ${f ? f.title : el.dataset.id}`, "info", { step: "Feed", source: "Your action" });
+      render();
+    },
+    "feed-sample": () => {
+      S.feed = S.feed.concat(SAMPLE_FEED.map(f => Object.assign({}, f, { fid: "F" + String(S.seq++).padStart(3, "0"), dept: f.dept || "", source: "" })));
+      logIt("Loaded sample feed (SYNTHETIC)", "info", { step: "Feed", source: "Sample feed" });
+      toast("Sample feed loaded"); render();
+    },
+    "feed-clear": () => {
+      S.feed = [];
+      logIt("Cleared recommended feed", "info", { step: "Feed", source: "Your action" });
+      toast("Feed cleared"); render();
+    },
     "analyzer-add": () => {
       if (!S.analysis) return;
       const a = S.analysis;
@@ -1315,6 +1431,13 @@
   };
 
   const forms = {
+    feedForm: f => {
+      const items = parseFeed(new FormData(f).get("feed"));
+      if (!items.length) { toast("Add at least one line with a title"); return; }
+      S.feed = S.feed.concat(items);
+      logIt(`Added ${items.length} listing(s) to recommended feed`, "info", { step: "Feed", source: "Your input" });
+      toast(`${items.length} listing(s) added`); render();
+    },
     profileForm: f => {
       const d = new FormData(f);
       const p = { company: String(d.get("company")).trim(), category: d.get("category"), region: String(d.get("region")).trim(), min: Number(d.get("min")), max: Number(d.get("max")), turnover: d.get("turnover") === "" ? null : Number(d.get("turnover")), experience: d.get("experience") === "" ? null : Number(d.get("experience")), msme: d.get("msme") || "unknown" };
