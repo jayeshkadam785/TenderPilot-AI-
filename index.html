@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>TenderPilot AI</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #F8FAFC; --panel: #FFFFFF; --soft: #F1F5F9; --line: #E2E8F0;
+    --ink: #0F172A; --ink2: #64748B; --ink3: #94A3B8;
+    --brand: #5B4FE8; --brand2: #7C73F0; --brand-soft: #EEF2FF;
+    --ok: #059669; --ok-soft: #ECFDF5;
+    --warn: #B45309; --warn-soft: #FFFBEB;
+    --bad: #DC2626; --bad-soft: #FEF2F2;
+    --info: #2563EB; --info-soft: #EFF6FF;
+    --r: 16px; --r-sm: 10px;
+    --shadow: 0 1px 2px rgba(15,23,42,.04), 0 1px 3px rgba(15,23,42,.06);
+    --shadow-lg: 0 12px 32px -12px rgba(15,23,42,.18);
+    --s1: 8px; --s2: 16px; --s3: 24px; --s4: 32px;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0B1020; --panel: #111827; --soft: #172033; --line: #263247;
+    --ink: #E2E8F0; --ink2: #94A3B8; --ink3: #64748B;
+    --brand: #8B85FF; --brand2: #A5A0FF; --brand-soft: #1E1B4B;
+    --ok: #34D399; --ok-soft: #053325;
+    --warn: #FBBF24; --warn-soft: #2A2007;
+    --bad: #F87171; --bad-soft: #2A0F12;
+    --info: #60A5FA; --info-soft: #0C2140;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+    --shadow-lg: 0 18px 40px -14px rgba(0,0,0,.7);
+  }
+  * { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  body { margin: 0; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 8px; }
+  ::selection { background: color-mix(in srgb, var(--brand) 20%, transparent); }
+  a { color: var(--brand); text-decoration: none; font-weight: 500; }
+  a:hover { text-decoration: underline; }
+  h1, h2, p { margin: 0; }
+
+  .app { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
+  .side { position: sticky; top: 0; height: 100vh; background: var(--panel); border-right: 1px solid var(--line); padding: var(--s3) var(--s2); display: flex; flex-direction: column; gap: var(--s2); overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 12px; padding: 4px 8px 8px; }
+  .logo { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; letter-spacing: .02em; background: linear-gradient(140deg, var(--brand), var(--brand2)); box-shadow: 0 6px 16px -4px color-mix(in srgb, var(--brand) 55%, transparent); flex: none; }
+  .bn { font-weight: 650; font-size: 15px; letter-spacing: -.01em; }
+  .bs { font-size: 11.5px; color: var(--ink2); }
+  .grp { display: flex; align-items: center; gap: 8px; margin: var(--s2) 0 6px; padding: 0 10px; font-size: 10.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); }
+  .grp::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nv { display: flex; align-items: center; gap: 11px; padding: 9px 11px; border: 0; background: none; border-radius: var(--r-sm); color: var(--ink2); cursor: pointer; text-align: left; font-size: 13.5px; transition: background .15s, color .15s; position: relative; }
+  .nv:hover { background: var(--soft); color: var(--ink); }
+  .nv[aria-current="page"] { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+  .nv[aria-current="page"]::before { content: ""; position: absolute; left: -16px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--brand); }
+  .nv .n { margin-left: auto; min-width: 22px; height: 20px; padding: 0 7px; border-radius: 999px; background: var(--brand); color: #fff; font-size: 11px; font-weight: 600; display: grid; place-items: center; }
+  .side-card { margin-top: auto; padding: var(--s2); border-radius: var(--r); background: linear-gradient(160deg, var(--brand-soft), var(--soft)); border: 1px solid var(--line); display: flex; gap: 12px; align-items: center; }
+  .avatar { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font-weight: 650; font-size: 13px; color: #fff; background: linear-gradient(140deg, var(--brand), var(--brand2)); flex: none; }
+  .side-card b { display: block; font-size: 13.5px; font-weight: 600; }
+  .side-card span { font-size: 12px; color: var(--ink2); }
+
+  .main { min-width: 0; }
+  .top { position: sticky; top: 0; z-index: 10; height: 64px; display: flex; align-items: center; gap: var(--s2); padding: 0 var(--s4); background: color-mix(in srgb, var(--bg) 86%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+  .crumbs { font-size: 13px; color: var(--ink2); display: flex; align-items: center; gap: 8px; }
+  .crumbs b { color: var(--ink); font-weight: 600; }
+  .sp { flex: 1; }
+  .icon-btn { height: 36px; padding: 0 12px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--panel); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; font-weight: 500; font-size: 13px; color: var(--ink2); box-shadow: var(--shadow); transition: all .15s; }
+  .icon-btn:hover { color: var(--ink); }
+
+  .btn { height: 38px; padding: 0 16px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--panel); cursor: pointer; font-weight: 600; font-size: 13.5px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; box-shadow: var(--shadow); transition: transform .12s, background .15s, box-shadow .2s, border-color .15s; white-space: nowrap; }
+  .btn:hover { background: var(--soft); }
+  .btn:active { transform: scale(.98); }
+  .btn.primary { color: #fff; border-color: transparent; background: linear-gradient(180deg, var(--brand2), var(--brand)); box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--brand) 70%, transparent); }
+  .btn.primary:hover { background: linear-gradient(180deg, var(--brand2), var(--brand)); box-shadow: 0 10px 22px -8px color-mix(in srgb, var(--brand) 75%, transparent); transform: translateY(-1px); }
+  .btn.ok { color: var(--ok); }
+  .btn.ok:hover { background: var(--ok-soft); }
+  .btn.bad { color: var(--bad); }
+  .btn.bad:hover { background: var(--bad-soft); }
+  .btn.ghost { background: none; border-color: transparent; box-shadow: none; color: var(--ink2); padding: 0 10px; }
+  .btn.ghost:hover { color: var(--ink); background: var(--soft); }
+  .btn.danger { color: var(--bad); }
+  .btn.sm { height: 32px; padding: 0 12px; font-size: 12.5px; border-radius: 9px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+
+  .content { padding: var(--s4); max-width: 1360px; animation: fade .35s ease both; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .page-h { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--s2); flex-wrap: wrap; margin-bottom: var(--s3); }
+  .h1 { font-size: 26px; font-weight: 680; letter-spacing: -.025em; line-height: 1.2; }
+  .sub { color: var(--ink2); margin-top: 6px; max-width: 70ch; }
+  .eyebrow { font-size: 12px; font-weight: 600; color: var(--brand); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
+  .row { display: flex; gap: var(--s1); align-items: center; flex-wrap: wrap; }
+  .muted { color: var(--ink2); }
+  .sm { font-size: 12.5px; }
+  .strong { font-weight: 600; }
+  .stack { display: flex; flex-direction: column; gap: var(--s2); }
+  .grid2 { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--s2); align-items: start; }
+  .grid-kpi { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--s2); margin-bottom: var(--s3); }
+  .section-t { font-size: 13px; font-weight: 650; color: var(--ink); margin: var(--s1) 0 -4px; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--shadow); }
+  .card-h { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); padding: var(--s2) var(--s3); border-bottom: 1px solid var(--line); }
+  .card-h h2 { font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+  .card-b { padding: var(--s3); }
+
+  .hero { position: relative; overflow: hidden; border-radius: 20px; padding: var(--s4); margin-bottom: var(--s3); color: #fff; background: linear-gradient(120deg, #5B4FE8 0%, #7C73F0 55%, #9B8CFF 100%); box-shadow: 0 20px 40px -20px rgba(91,79,232,.6); display: grid; grid-template-columns: minmax(0,1fr) auto; gap: var(--s3); align-items: center; }
+  .hero::before, .hero::after { content: ""; position: absolute; border-radius: 50%; background: rgba(255,255,255,.12); pointer-events: none; }
+  .hero::before { width: 260px; height: 260px; right: -70px; top: -120px; }
+  .hero::after { width: 160px; height: 160px; right: 140px; bottom: -110px; }
+  .hero h2 { font-size: 24px; font-weight: 680; letter-spacing: -.02em; }
+  .hero p { margin-top: 6px; color: rgba(255,255,255,.85); max-width: 60ch; }
+  .hero .btn { background: #fff; color: var(--brand); border: 0; }
+  .hero .btn.ghost { background: rgba(255,255,255,.14); color: #fff; }
+  .hero .btn:hover { background: #fff; }
+  .hero .btn.ghost:hover { background: rgba(255,255,255,.22); }
+  .hero-stats { display: flex; gap: var(--s2); position: relative; z-index: 1; }
+  .hero-stat { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.2); border-radius: 14px; padding: 12px 16px; min-width: 110px; }
+  .hero-stat b { display: block; font-size: 22px; font-weight: 680; }
+  .hero-stat span { font-size: 12px; color: rgba(255,255,255,.85); }
+
+  .kpi { padding: var(--s3); display: flex; flex-direction: column; gap: 14px; animation: rise .45s cubic-bezier(.2,.8,.2,1) both; position: relative; overflow: hidden; }
+  .kpi:nth-child(2) { animation-delay: .05s; } .kpi:nth-child(3) { animation-delay: .1s; } .kpi:nth-child(4) { animation-delay: .15s; }
+  .kpi:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); transition: all .2s; }
+  .kpi-top { display: flex; align-items: center; justify-content: space-between; }
+  .kpi-ic { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); }
+  .kpi .l { font-size: 13px; color: var(--ink2); font-weight: 500; }
+  .kpi .v { font-size: 30px; font-weight: 680; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .kpi .d { font-size: 12.5px; color: var(--ink2); }
+
+  .chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .t-ok { background: var(--ok-soft); color: var(--ok); }
+  .t-warn { background: var(--warn-soft); color: var(--warn); }
+  .t-bad { background: var(--bad-soft); color: var(--bad); }
+  .t-info { background: var(--info-soft); color: var(--info); }
+  .t-brand { background: var(--brand-soft); color: var(--brand); }
+  .t-muted { background: var(--soft); color: var(--ink2); }
+
+  .list { list-style: none; margin: 0; padding: 0; }
+  .list li { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .list li:last-child { border-bottom: 0; padding-bottom: 0; }
+  .list li:first-child { padding-top: 0; }
+  .tile { width: 40px; height: 40px; border-radius: 12px; flex: none; display: grid; place-items: center; font-weight: 650; font-size: 13px; color: var(--brand); background: var(--brand-soft); }
+  .tw { overflow-x: auto; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; }
+  th { text-align: left; font-size: 11.5px; font-weight: 600; color: var(--ink3); letter-spacing: .04em; text-transform: uppercase; padding: 12px var(--s2); background: var(--soft); border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th:first-child { border-top-left-radius: var(--r); }
+  th:last-child { border-top-right-radius: var(--r); }
+  td { padding: 14px var(--s2); border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  tr.row-link { cursor: pointer; transition: background .15s; }
+  tr.row-link:hover { background: color-mix(in srgb, var(--brand) 5%, var(--panel)); }
+  tr.row-link:hover td:first-child { box-shadow: inset 3px 0 0 var(--brand); }
+  .tt { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .tt .strong { font-size: 14px; }
+  .bar { height: 6px; border-radius: 999px; background: var(--soft); overflow: hidden; width: 96px; }
+  .bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--brand), var(--brand2)); transition: width .5s ease; }
+
+  .seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--soft); border: 1px solid var(--line); flex-wrap: wrap; }
+  .seg button { border: 0; background: none; padding: 7px 12px; border-radius: 9px; color: var(--ink2); cursor: pointer; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; }
+  .seg button:hover { color: var(--ink); }
+  .seg button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: var(--shadow); font-weight: 600; }
+  .seg .c { font-size: 11px; background: var(--soft); color: var(--ink2); border-radius: 999px; padding: 0 6px; }
+  .seg button[aria-pressed="true"] .c { background: var(--brand-soft); color: var(--brand); }
+  .toolbar { display: flex; gap: var(--s1); flex-wrap: wrap; align-items: center; justify-content: space-between; margin-bottom: var(--s2); }
+  .search { position: relative; flex: 1; min-width: 220px; max-width: 360px; }
+  .search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink3); }
+  input.search-input { width: 100%; height: 38px; padding: 0 12px 0 36px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--panel); outline: none; transition: border-color .15s, box-shadow .15s; }
+  input:focus, select:focus, textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 16%, transparent); outline: none; }
+  select.pick { height: 38px; padding: 0 34px 0 12px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--panel); cursor: pointer; appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--ink3) 50%), linear-gradient(135deg, var(--ink3) 50%, transparent 50%); background-position: calc(100% - 17px) 52%, calc(100% - 12px) 52%; background-size: 5px 5px; background-repeat: no-repeat; }
+
+  .form { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+  .form .full { grid-column: 1 / -1; }
+  .fl { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--ink2); }
+  .fl small { font-weight: 400; color: var(--ink3); font-size: 12px; }
+  input.inp, select.inp, textarea.inp { width: 100%; padding: 10px 12px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--panel); color: var(--ink); outline: none; transition: border-color .15s, box-shadow .15s; font-weight: 400; }
+  input.inp:hover, select.inp:hover, textarea.inp:hover { border-color: color-mix(in srgb, var(--ink) 18%, var(--line)); }
+  textarea.inp { min-height: 88px; resize: vertical; }
+  .check { display: flex; align-items: center; gap: 10px; font-weight: 500; color: var(--ink); font-size: 13px; }
+  .check input { width: 16px; height: 16px; accent-color: var(--brand); }
+  .hint { font-size: 12px; color: var(--ink3); }
+
+  .head-row { display: flex; justify-content: space-between; gap: var(--s3); align-items: flex-start; flex-wrap: wrap; margin-bottom: var(--s3); }
+  .head-row h1 { font-size: 26px; font-weight: 680; letter-spacing: -.025em; line-height: 1.2; margin: 8px 0 12px; }
+  .detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--s3); align-items: start; }
+  .tabs { display: inline-flex; gap: 4px; padding: 4px; background: var(--soft); border: 1px solid var(--line); border-radius: 12px; margin-bottom: var(--s2); flex-wrap: wrap; }
+  .tabs button { border: 0; background: none; padding: 7px 14px; border-radius: 9px; color: var(--ink2); cursor: pointer; font-size: 13px; font-weight: 500; }
+  .tabs button[aria-selected="true"] { background: var(--panel); color: var(--ink); box-shadow: var(--shadow); font-weight: 600; }
+  .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); margin-bottom: var(--s2); }
+  .metric { padding: var(--s2); border-radius: 14px; background: var(--soft); border: 1px solid var(--line); }
+  .metric span { display: block; font-size: 12px; color: var(--ink2); font-weight: 500; }
+  .metric b { display: block; margin-top: 4px; font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; word-break: break-word; }
+  .callout { display: flex; gap: 12px; align-items: flex-start; padding: var(--s2); border-radius: 14px; margin: var(--s2) 0; font-size: 13.5px; }
+  .callout.info { background: var(--info-soft); color: var(--info); }
+  .callout.warn { background: var(--warn-soft); color: var(--warn); }
+  .callout.ok { background: var(--ok-soft); color: var(--ok); }
+  .callout.bad { background: var(--bad-soft); color: var(--bad); }
+  .callout .ci { width: 28px; height: 28px; border-radius: 9px; background: color-mix(in srgb, currentColor 14%, transparent); display: grid; place-items: center; flex: none; }
+  .callout b { font-weight: 650; }
+  blockquote { margin: var(--s1) 0; padding: var(--s2); border-radius: 12px; background: var(--soft); border-left: 3px solid var(--brand); color: var(--ink2); font-size: 13px; white-space: pre-wrap; }
+  .side-sum { position: sticky; top: 80px; display: flex; flex-direction: column; gap: var(--s2); }
+  .countdown { font-size: 34px; font-weight: 680; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .ring-row { display: flex; align-items: center; gap: var(--s2); }
+  .ring-row .big { font-size: 22px; font-weight: 680; }
+  .stepper { list-style: none; margin: 0; padding: 0; position: relative; }
+  .stepper li { display: grid; grid-template-columns: 26px 1fr; gap: 12px; padding-bottom: 16px; position: relative; }
+  .stepper li:last-child { padding-bottom: 0; }
+  .stepper li::before { content: ""; position: absolute; left: 12px; top: 26px; bottom: 0; width: 2px; background: var(--line); }
+  .stepper li:last-child::before { display: none; }
+  .stepper .dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; border: 2px solid var(--line); background: var(--panel); color: var(--ink3); position: relative; z-index: 1; }
+  .stepper .s-done .dot { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .stepper .s-warn .dot { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+  .stepper .s-bad .dot { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+  .stepper .s-active .dot { border-color: var(--brand); color: var(--brand); box-shadow: 0 0 0 5px var(--brand-soft); }
+  .stepper .sn { font-size: 13.5px; font-weight: 600; }
+  .stepper .sd { font-size: 12px; color: var(--ink2); }
+
+  .ap { display: flex; gap: var(--s2); align-items: flex-start; padding: var(--s2); border: 1px solid var(--line); border-radius: 14px; background: var(--panel); margin-bottom: 12px; border-left: 4px solid var(--brand); transition: box-shadow .2s; }
+  .ap:hover { box-shadow: var(--shadow-lg); }
+  .ap.done { border-left-color: var(--line); }
+  .ap .body { flex: 1; min-width: 0; }
+  .ap .acts { display: flex; gap: 8px; margin-top: 12px; }
+  .apmeta { display: grid; grid-template-columns: 96px 1fr; gap: 6px 12px; font-size: 12.5px; margin-top: 10px; padding: 10px 12px; background: var(--soft); border-radius: 10px; }
+  .apmeta dt { color: var(--ink3); font-weight: 600; }
+  .apmeta dd { margin: 0; color: var(--ink); }
+  .empty { padding: var(--s4) var(--s3); text-align: center; color: var(--ink2); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .empty .ei { width: 52px; height: 52px; border-radius: 16px; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; }
+  .empty b { color: var(--ink); font-weight: 600; }
+
+  .tl { list-style: none; margin: 0; padding: 0; position: relative; }
+  .tl li { display: grid; grid-template-columns: 14px 1fr auto; gap: 12px; padding: 10px 0; position: relative; font-size: 13.5px; }
+  .tl li::before { content: ""; position: absolute; left: 6px; top: 22px; bottom: -10px; width: 2px; background: var(--line); }
+  .tl li:last-child::before { display: none; }
+  .tl .d { width: 14px; height: 14px; border-radius: 50%; margin-top: 4px; background: var(--brand); box-shadow: 0 0 0 4px var(--brand-soft); }
+  .tl .d.ok { background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft); }
+  .tl .d.warn { background: var(--warn); box-shadow: 0 0 0 4px var(--warn-soft); }
+  .tl .d.bad { background: var(--bad); box-shadow: 0 0 0 4px var(--bad-soft); }
+  .tl time { font-size: 12px; color: var(--ink3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .vchk { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .vchk:last-child { border-bottom: 0; }
+  .vchk .ci { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; }
+  .vchk .sd { font-size: 12.5px; color: var(--ink2); margin-top: 2px; }
+
+  .tc { display: grid; grid-template-columns: auto 1fr auto; gap: var(--s2); align-items: center; padding: var(--s2) var(--s3); border-bottom: 1px solid var(--line); }
+  .tc:last-child { border-bottom: 0; }
+  .tc .code { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-weight: 700; font-size: 13px; background: var(--brand-soft); color: var(--brand); }
+  .tc .exp { font-size: 12.5px; color: var(--ink2); margin-top: 4px; }
+  .tc .act { font-size: 12.5px; margin-top: 2px; color: var(--ink); }
+
+  .demo { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); flex-wrap: wrap; padding: var(--s2) var(--s3); border-radius: var(--r); background: linear-gradient(120deg, var(--brand-soft), var(--panel) 70%); border: 1px dashed color-mix(in srgb, var(--brand) 35%, var(--line)); margin-bottom: var(--s2); font-size: 13.5px; color: var(--ink2); }
+
+  .toast { position: fixed; right: 24px; bottom: 24px; z-index: 30; background: var(--ink); color: var(--bg); padding: 12px 16px; border-radius: 12px; font-size: 13px; font-weight: 500; box-shadow: var(--shadow-lg); opacity: 0; transform: translateY(12px); transition: all .25s ease; pointer-events: none; display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 48px); }
+  .toast.show { opacity: 1; transform: none; }
+  .toast::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 25%, transparent); flex: none; }
+
+  @media (max-width: 1100px) { .detail-grid { grid-template-columns: 1fr; } .side-sum { position: static; } .grid2 { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+    .side { position: static; height: auto; flex-direction: row; overflow-x: auto; padding: 10px; border-right: 0; border-bottom: 1px solid var(--line); gap: 8px; }
+    .brand { padding: 0 6px 0 2px; flex: none; }
+    .bs, .side-card, .grp { display: none; }
+    .bn { font-size: 14px; white-space: nowrap; }
+    .nav { flex-direction: row; }
+    .nv { white-space: nowrap; }
+    .nv[aria-current="page"]::before { display: none; }
+    .top { padding: 0 var(--s2); }
+    .crumbs { display: none; }
+    .content { padding: var(--s2); }
+    .grid-kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hero { grid-template-columns: 1fr; padding: var(--s3); }
+    .form { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: 1fr 1fr; }
+    .search { max-width: none; }
+    .tc { grid-template-columns: auto 1fr; }
+    .tc > :last-child { grid-column: 1 / -1; }
+  }
+  /* ---- Notifications and analytics ---- */
+  .bell { position: relative; }
+  .bdot { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--bad); color: #fff; font-size: 10.5px; font-weight: 700; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--bg); }
+  #notifHost { position: fixed; top: 72px; right: 24px; z-index: 25; }
+  .notif { width: min(380px, calc(100vw - 32px)); box-shadow: var(--shadow-lg); }
+  .card-f { padding: var(--s2) var(--s3); border-top: 1px solid var(--line); }
+  .nlist { list-style: none; margin: 0; padding: 0; }
+  .nlist li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .nlist li:last-child { border-bottom: 0; }
+  .nd { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--brand); box-shadow: 0 0 0 4px var(--brand-soft); }
+  .nd.bad { background: var(--bad); box-shadow: 0 0 0 4px var(--bad-soft); }
+  .nd.warn { background: var(--warn); box-shadow: 0 0 0 4px var(--warn-soft); }
+  .hbar { height: 10px; border-radius: 999px; background: var(--soft); overflow: hidden; display: flex; }
+  .hbar i { display: block; height: 100%; }
+  .kv-row { display: flex; justify-content: space-between; font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .kv-row:last-child { border-bottom: 0; }
+  @media (max-width: 900px) { #notifHost { left: 12px; right: 12px; top: 64px; } .notif { width: 100%; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="logo">TP</div><div><div class="bn">TenderPilot AI</div><div class="bs">Tender &amp; RFP Watcher</div></div></div>
+    <nav class="nav" id="nav" aria-label="Main navigation"></nav>
+    <div class="side-card" id="sideCard"></div>
+  </aside>
+  <div class="main">
+    <header class="top">
+      <div class="crumbs" id="crumb"></div>
+      <div class="sp"></div>
+      <button class="icon-btn bell" id="bell" data-a="notif" aria-label="Notifications"></button>
+      <button class="icon-btn" id="themeBtn" data-a="theme" aria-label="Toggle theme"></button>
+      <button class="btn primary" data-a="run" id="runBtn">Run agent</button>
+    </header>
+    <main class="content" id="main"></main>
+  </div>
+</div>
+<div id="notifHost"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const money = n => n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN");
+  const dt = d => d ? new Date(d).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+  const daysLeft = d => Math.ceil((new Date(d) - Date.now()) / 864e5);
+  const lines = s => String(s || "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const initials = s => String(s || "TP").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "TP";
+  const CATS = ["IT services", "Construction", "Supplies", "Consultancy", "Other"];
+  const stamp = () => new Date().toISOString().slice(0, 10);
+  const csvCell = v => { const s = v == null ? "" : String(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const toCsv = rows => rows.map(r => r.map(csvCell).join(",")).join("\r\n");
+
+  const I = {
+    dash: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    folder: '<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+    shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',
+    pulse: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+    flask: '<path d="M9 3h6M10 3v6L4.5 18.5A1.5 1.5 0 0 0 5.8 21h12.4a1.5 1.5 0 0 0 1.3-2.5L14 9V3"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    back: '<path d="m15 18-6-6 6-6"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+    play: '<path d="M6 4l14 8-14 8z"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    x: '<path d="M18 6 6 18M6 6l12 12"/>',
+    alert: '<circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    cal: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    doc: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+    trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>',
+    bolt: '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
+    verify: '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>',
+    chart: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
+    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>'
+  };
+  const ic = (n, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
+
+  const TONE = {
+    "Potential match": "t-ok", MATCH: "t-ok", COMPLETE: "t-ok", PRESENT: "t-ok", Verified: "t-ok", Approved: "t-ok", PASS: "t-ok", Success: "t-ok", "Source and notice": "t-ok",
+    "No match": "t-bad", MISMATCH: "t-bad", INCOMPLETE: "t-bad", MISSING: "t-bad", "DOWNLOAD FAILED": "t-bad", Rejected: "t-bad", EXPIRED: "t-bad", FAIL: "t-bad", Failed: "t-bad",
+    "Review required": "t-warn", "MANUAL REVIEW REQUIRED": "t-warn", "NEEDS VERIFICATION": "t-warn", "NOT VERIFIED": "t-warn", UNVERIFIED: "t-warn", YES: "t-warn", Review: "t-warn", Partial: "t-warn",
+    Pending: "t-info", PENDING: "t-info", "Waiting for you": "t-info",
+    UNKNOWN: "t-muted", NO: "t-muted", SYNTHETIC: "t-muted", MANUAL: "t-brand", None: "t-muted", Info: "t-brand"
+  };
+  const chip = (label, tone) => `<span class="chip ${tone}">${esc(label)}</span>`;
+  const badge = s => chip(s, TONE[s] || "t-muted");
+  const ring = (p, size = 52) => {
+    const r = size / 2 - 5, c = 2 * Math.PI * r;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--soft)" stroke-width="5"/><circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--brand)" stroke-width="5" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - Math.min(p, 1))}" transform="rotate(-90 ${size / 2} ${size / 2})"/></svg>`;
+  };
+
+  const S = {
+    view: "dashboard", cur: null, tab: "overview",
+    profile: null, tenders: [], approvals: [], log: [], runs: [], seq: 1, history: [], notifOpen: false, analysis: null,
+    f: { q: "", status: "all", cat: "all" },
+    dark: matchMedia("(prefers-color-scheme: dark)").matches
+  };
+  const STORE = { doc: null, ready: false, t: null };
+  let DL = null;
+  document.documentElement.dataset.theme = S.dark ? "dark" : "light";
+
+  function mk(o) {
+    return Object.assign({ id: "", title: "", dept: "", category: "", region: "", value: null, closing: null, notice: "", sourceUrl: "", origin: "manual", retrieved: new Date(), required: [], files: [], sourceAvailable: [], flaky: [], corrigenda: [], collected: [], failed: [], attempted: [] }, o);
+  }
+
+  function evaluate(t, p = S.profile) {
+    const prof = p || { category: "", region: "", min: 0, max: Infinity };
+    const items = [];
+    const add = (k, status, detail) => items.push({ k, status, detail });
+    add("Category", !t.category || !prof.category ? "UNKNOWN" : t.category === prof.category ? "MATCH" : "MISMATCH",
+      t.category ? `Tender: ${t.category}. Your profile: ${prof.category || "not set"}.` : "Tender category not stated.");
+    const tr = (t.region || "").toLowerCase(), pr = (prof.region || "").toLowerCase();
+    add("Region", !tr || !pr ? "UNKNOWN" : (tr.includes(pr) || pr.includes(tr)) ? "MATCH" : "MISMATCH",
+      t.region ? `Tender: ${t.region}. Your profile: ${prof.region || "not set"}.` : "Tender region not stated.");
+    add("Budget range", t.value == null ? "UNKNOWN" : (t.value >= prof.min && t.value <= prof.max) ? "MATCH" : "MISMATCH",
+      t.value == null ? "Value not published in the notice." : `${money(t.value)} against ${money(prof.min)} to ${money(prof.max)}.`);
+    const flagged = /registration|experience|turnover|certificate|iso/i.test(t.notice || "");
+    add("Conditions", !t.notice ? "UNKNOWN" : flagged ? "MANUAL REVIEW REQUIRED" : "MATCH",
+      !t.notice ? "No notice text entered." : flagged ? "Notice mentions registration, experience, turnover or certificate conditions. Check these yourself." : "No restrictive conditions found in the pasted text. Read the full tender.");
+
+    const st = items.map(i => i.status);
+    const overall = st.includes("MISMATCH") ? "MISMATCH" : st.includes("MANUAL REVIEW REQUIRED") ? "MANUAL REVIEW REQUIRED" : st.includes("UNKNOWN") ? "UNKNOWN" : "MATCH";
+    const filterStatus = overall === "MISMATCH" ? "No match" : overall === "MATCH" ? "Potential match" : "Review required";
+
+    const verified = t.corrigenda.filter(c => c.verified).sort((a, b) => new Date(a.closing) - new Date(b.closing));
+    const unverified = t.corrigenda.filter(c => !c.verified);
+    const original = t.closing ? new Date(t.closing) : null;
+    let latest = original, state = original ? "Original closing date" : "No closing date", isUnverified = false;
+    if (verified.length) { latest = new Date(verified[verified.length - 1].closing); state = "Latest verified corrigendum"; }
+    if (unverified.length && !verified.length) { latest = null; state = "Corrigendum not verified"; isUnverified = true; }
+    if (unverified.length && verified.length) state += " · unverified corrigendum pending";
+    const expired = !!latest && latest < new Date();
+
+    const req = t.required || [];
+    const have = new Set([...(t.files || []), ...(t.collected || [])]);
+    const rows = req.map(n => ({
+      n, s: have.has(n) ? "PRESENT" : (t.failed || []).includes(n) ? "DOWNLOAD FAILED" : (t.sourceAvailable || []).includes(n) ? "NOT VERIFIED" : "MISSING"
+    }));
+    const pack = !req.length ? "NEEDS VERIFICATION"
+      : rows.some(r => r.s === "MISSING" || r.s === "DOWNLOAD FAILED") ? "INCOMPLETE"
+      : rows.some(r => r.s === "NOT VERIFIED") ? "NEEDS VERIFICATION" : "COMPLETE";
+
+    const txt = t.notice || "";
+    const emdHit = txt.match(/\b(EMD|earnest money)\b/i);
+    const amt = txt.match(/(?:EMD|earnest money)[^\d₹]{0,60}(?:₹|Rs\.?)\s*([\d,]+)/i);
+    const emd = { status: !txt ? "UNKNOWN" : emdHit ? "YES" : "NO", amount: amt ? Number(amt[1].replace(/,/g, "")) : null, excerpt: emdHit ? txt.slice(Math.max(0, emdHit.index - 60), emdHit.index + 150) : "" };
+
+    return { items, overall, filterStatus, deadline: { latest, original, state, expired, unverified: isUnverified }, rows, pack, emd };
+  }
+
+  function evidenceLevel(t) {
+    const src = !!t.sourceUrl, note = !!t.notice;
+    if (src && note) return { label: "Source and notice", tone: "t-ok" };
+    if (src || note) return { label: "Partial", tone: "t-warn" };
+    return { label: "None", tone: "t-muted" };
+  }
+
+  function logIt(msg, tone = "info", meta = {}) {
+    S.log.unshift({ id: "EX-" + String(S.seq++).padStart(4, "0"), msg, tone, at: new Date(),
+      step: meta.step || "Workflow", source: meta.source || "TenderPilot agent", failure: meta.failure || "" });
+    recordHistory();
+    persist();
+  }
+
+  let tt;
+  function toast(m) {
+    const el = $("#toast"); el.textContent = m; el.classList.add("show");
+    clearTimeout(tt); tt = setTimeout(() => el.classList.remove("show"), 2200);
+  }
+
+  function pendingFor(id) { return S.approvals.filter(a => a.tid === id && a.status === "pending"); }
+
+  const APMETA = (t, type, e) => ({
+    collect: { dest: `Pack folder for ${t.id}`, expect: "Files listed as available on the portal are added to the pack. Anything not found stays MISSING.", risk: "A download can fail. Files are counted only after the completeness check runs." },
+    retry: { dest: `Pack folder for ${t.id}`, expect: "Failed files are retried once.", risk: "Repeated failures stay visible as DOWNLOAD FAILED." },
+    emd: { dest: "EMD register (flag only)", expect: "EMD is flagged with the notice evidence for your review.", risk: "If you miss the EMD deadline, the bid cannot be submitted. TenderPilot never makes a payment." },
+    zip: { dest: "Your device (ZIP download)", expect: "A ZIP with the checklist and a manifest of the pack.", risk: "The ZIP has names and checklist data only. Tender file contents are not included." }
+  })[type];
+
+  function propose(t, type) {
+    const e = evaluate(t);
+    const titles = { collect: "Collect documents into pack", emd: "EMD flag for review", retry: "Retry failed downloads", zip: "Build ZIP pack" };
+    const key = type === "retry" ? `${t.id}:retry:${t.attempted.length}`
+      : type === "zip" ? `${t.id}:zip:${S.approvals.filter(a => a.tid === t.id && a.type === "zip").length}`
+      : `${t.id}:${type}`;
+    if (S.approvals.some(a => a.key === key && (a.status === "pending" || a.status === "approved"))) return false;
+    const detail = type === "collect" ? e.rows.filter(r => r.s === "NOT VERIFIED").map(r => r.n).join(", ")
+      : type === "retry" ? e.rows.filter(r => r.s === "DOWNLOAD FAILED").map(r => r.n).join(", ")
+      : type === "zip" ? `${e.rows.length} checklist row(s) and a manifest for ${t.id}`
+      : `EMD ${e.emd.amount ? money(e.emd.amount) : "amount not stated"}.`;
+    const m = APMETA(t, type, e);
+    S.approvals.unshift({ id: "AP-" + String(S.seq++).padStart(3, "0"), key, tid: t.id, type, title: titles[type], detail, dest: m.dest, expect: m.expect, risk: m.risk, status: "pending", at: new Date() });
+    return true;
+  }
+
+  function execute(t, type) {
+    if (type === "collect" || type === "retry") {
+      (t.required || []).forEach(n => {
+        const have = t.files.includes(n) || t.collected.includes(n);
+        if (have || !t.sourceAvailable.includes(n)) return;
+        if (type === "retry" && !t.failed.includes(n)) return;
+        if (type === "collect" && t.failed.includes(n)) return;
+        if (t.flaky.includes(n) && !t.attempted.includes(n)) { t.attempted.push(n); if (!t.failed.includes(n)) t.failed.push(n); return; }
+        t.collected.push(n);
+        t.failed = t.failed.filter(x => x !== n);
+      });
+    }
+  }
+
+  function decide(id, ok) {
+    const a = S.approvals.find(x => x.id === id);
+    if (!a || a.status !== "pending") return;
+    const t = S.tenders.find(x => x.id === a.tid);
+    a.decidedAt = new Date();
+    if (!ok) {
+      a.status = "rejected";
+      logIt(`${a.id} rejected: ${a.title} for ${t.id}. No action taken.`, "bad", { step: "Approval", source: "Your decision", failure: "Rejected by user" });
+      toast("Rejected and logged");
+    } else {
+      a.status = "approved";
+      if (a.type === "emd") logIt(`${a.id} approved: EMD flagged for ${t.id}. No payment initiated.`, "ok", { step: "Approval", source: "Your decision" });
+      else if (a.type === "zip") { logIt(`${a.id} approved: building ZIP for ${t.id}`, "ok", { step: "Pack", source: "Checklist and manifest" }); buildZip(t); }
+      else {
+        execute(t, a.type);
+        const v = evaluate(t);
+        const failed = v.rows.filter(r => r.s === "DOWNLOAD FAILED").map(r => r.n).join(", ");
+        logIt(`${a.id} executed for ${t.id}. Re-verified pack: ${v.pack.status}`, v.pack.status === "COMPLETE" ? "ok" : "warn",
+          { step: "Collection", source: "Tender portal listing", failure: failed ? "Download failed: " + failed : "" });
+      }
+      toast("Approved and logged");
+    }
+    render();
+  }
+
+  function runAgent() {
+    if (!S.profile) { toast("Save your business profile first"); S.view = "profile"; render(); return; }
+    if (!S.tenders.length) { toast("Add a tender first"); return; }
+    const runId = "RUN-" + String(S.runs.length + 1).padStart(3, "0");
+    logIt(`${runId} started for ${S.tenders.length} tender(s)`, "info", { step: "Run", source: "Your profile" });
+    S.tenders.forEach(t => {
+      const e = evaluate(t);
+      logIt(`${t.id}: filter ${e.filterStatus}; pack ${e.pack.status}; deadline ${e.deadline.state}`, e.pack.status === "COMPLETE" ? "ok" : "warn",
+        { step: "Checks", source: "Profile and notice text", failure: e.pack.status === "COMPLETE" ? "" : "Pack " + e.pack.status });
+      if (e.deadline.unverified) logIt(`${t.id}: deadline UNVERIFIED. Corrigendum not confirmed on official portal.`, "warn",
+        { step: "Corrigendum", source: "Official portal (manual check)", failure: "Corrigendum not verified" });
+      if (e.emd.status === "YES") propose(t, "emd");
+      if (e.rows.some(r => r.s === "NOT VERIFIED")) propose(t, "collect");
+      if (e.rows.some(r => r.s === "DOWNLOAD FAILED")) propose(t, "retry");
+    });
+    S.runs.unshift({ id: runId, at: new Date(), count: S.tenders.length });
+    toast(`${runId} complete`);
+    render();
+  }
+
+  function loadDemo() {
+    if (S.tenders.some(t => t.id.startsWith("DEMO"))) { toast("Demo data already loaded"); return; }
+    const d = n => new Date(Date.now() + n * 864e5).toISOString();
+    S.tenders.push(
+      mk({ id: "DEMO-1", title: "Website development services", dept: "Maharashtra Government", category: "IT services", region: "Maharashtra", value: 1200000, closing: d(10), origin: "synthetic", notice: "Bids must be submitted online. Technical specifications are attached.", required: ["Tender_Notice", "Technical_Specification", "Annexure_A", "Annexure_B"], files: ["Tender_Notice", "Technical_Specification", "Annexure_A", "Annexure_B"] }),
+      mk({ id: "DEMO-2", title: "Network infrastructure upgrade", dept: "Municipal Corporation", category: "IT services", region: "Maharashtra", value: 500000, closing: d(3), origin: "synthetic", notice: "Submit the bid online before the closing time.", required: ["Tender_Notice", "Technical_Specification", "Annexure_A", "Annexure_B"], files: ["Tender_Notice", "Technical_Specification", "Annexure_A"] }),
+      mk({ id: "DEMO-3", title: "Software support contract", dept: "Railway Department", category: "IT services", region: "Maharashtra", value: 5000000, closing: d(6), origin: "synthetic", notice: "An Earnest Money Deposit of Rs. 1,00,000 is required. Minimum 3 years experience in similar work.", required: ["Tender_Notice", "Technical_Specification", "Annexure_A"], files: ["Tender_Notice"], sourceAvailable: ["Technical_Specification", "Annexure_A"], flaky: ["Technical_Specification"], corrigenda: [{ id: "C1", closing: d(9), source: "Portal corrigendum 01", verified: false }] }),
+      mk({ id: "DEMO-4", title: "Cloud hosting renewal", dept: "State IT Department", category: "IT services", region: "Maharashtra", value: 800000, closing: d(14), origin: "synthetic", notice: "EMD of Rs. 24,000 must accompany the bid. Submit online.", required: ["Tender_Notice", "Annexure_A"], files: ["Tender_Notice", "Annexure_A"] })
+    );
+    logIt("Loaded 4 synthetic demo tenders for testing (labelled SYNTHETIC)", "info", { step: "Setup", source: "Synthetic demo" });
+    toast("Synthetic demo loaded");
+    render();
+  }
+
+  /* ---- Analytics history ---- */
+  function recordHistory() {
+    const ev = S.tenders.map(t => evaluate(t));
+    S.history.push({
+      at: new Date().toISOString(),
+      matches: ev.filter(e => e.filterStatus === "Potential match").length,
+      complete: ev.filter(e => e.pack.status === "COMPLETE").length,
+      incomplete: ev.filter(e => e.pack.status === "INCOMPLETE").length,
+      pending: S.approvals.filter(a => a.status === "pending").length,
+      approved: S.approvals.filter(a => a.status === "approved").length
+    });
+    S.history = S.history.slice(-200);
+  }
+
+  function lineChartHtml() {
+    const H = S.history, W = 640, Hh = 220, padL = 36, padR = 12, padT = 12, padB = 28;
+    if (H.length < 2) return `<div class="empty"><div class="ei">${ic("chart", 22)}</div><b>Trend needs more data</b><span>Run the agent or change an approval a couple of times. Each change adds a point.</span></div>`;
+    const series = [["matches", "Potential matches", "var(--brand)"], ["complete", "Complete packs", "var(--ok)"], ["pending", "Pending approvals", "var(--warn)"]];
+    const max = Math.max(1, ...H.flatMap(p => series.map(s => p[s[0]] || 0)));
+    const x = i => padL + i * (W - padL - padR) / (H.length - 1);
+    const y = v => padT + (Hh - padT - padB) * (1 - v / max);
+    const grid = [0, 0.5, 1].map(f => {
+      const v = Math.round(max * f), yy = y(v).toFixed(1);
+      return `<line x1="${padL}" x2="${W - padR}" y1="${yy}" y2="${yy}" style="stroke:var(--line)"/><text x="${padL - 8}" y="${Number(yy) + 4}" text-anchor="end" style="fill:var(--ink3);font-size:11px">${v}</text>`;
+    }).join("");
+    const lines = series.map(([k, , c]) => {
+      const pts = H.map((p, i) => `${x(i).toFixed(1)},${y(p[k] || 0).toFixed(1)}`).join(" ");
+      return `<polyline points="${pts}" fill="none" style="stroke:${c};stroke-width:2.5" stroke-linejoin="round" stroke-linecap="round"/>` +
+        H.map((p, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(p[k] || 0).toFixed(1)}" r="3" style="fill:${c}"/>`).join("");
+    }).join("");
+    const legend = series.map(([, l, c]) => `<span class="row" style="gap:6px"><i style="width:10px;height:10px;border-radius:3px;background:${c};display:inline-block"></i><span class="sm muted">${l}</span></span>`).join("");
+    const first = new Date(H[0].at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+    const last = new Date(H[H.length - 1].at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+    return `<div class="row" style="gap:16px;margin-bottom:8px">${legend}</div>
+      <svg viewBox="0 0 ${W} ${Hh}" width="100%" role="img" aria-label="Trend of matches, complete packs and pending approvals">${grid}${lines}
+      <text x="${padL}" y="${Hh - 6}" style="fill:var(--ink3);font-size:11px">${first}</text>
+      <text x="${W - padR}" y="${Hh - 6}" text-anchor="end" style="fill:var(--ink3);font-size:11px">${last}</text></svg>`;
+  }
+
+  function vAnalytics() {
+    const ev = S.tenders.map(t => evaluate(t));
+    const total = ev.length;
+    const complete = ev.filter(e => e.pack.status === "COMPLETE").length;
+    const inc = ev.filter(e => e.pack.status === "INCOMPLETE").length;
+    const review = total - complete - inc;
+    const pct = total ? Math.round(complete / total * 100) : 0;
+    const matches = ev.filter(e => e.filterStatus === "Potential match").length;
+    const approved = S.approvals.filter(a => a.status === "approved").length;
+    const rejected = S.approvals.filter(a => a.status === "rejected").length;
+    const pending = S.approvals.filter(a => a.status === "pending").length;
+    const seg = (n, c) => total ? `<i style="width:${n / total * 100}%;background:${c}"></i>` : "";
+    const aTotal = Math.max(1, approved + rejected + pending);
+    const bar = (label, n, c) => `<div style="margin-bottom:14px"><div class="kv-row" style="border:0;padding:0 0 6px"><span>${label}</span><b style="font-variant-numeric:tabular-nums">${n}</b></div><div class="hbar"><i style="width:${n / aTotal * 100}%;background:${c}"></i></div></div>`;
+    return `<div class="page-h"><div><div class="eyebrow">Insights</div><h1 class="h1">Analytics</h1><p class="sub">The trend is recorded each time you change something or run the agent. Nothing is estimated.</p></div></div>
+      <div class="grid-kpi">
+        <div class="card kpi"><div class="kpi-top"><span class="l">Potential matches</span><div class="kpi-ic">${ic("target", 18)}</div></div><div class="v">${matches}</div><div class="d">Of ${total} tenders</div></div>
+        <div class="card kpi"><div class="kpi-top"><span class="l">Pack completion</span><div class="kpi-ic">${ic("folder", 18)}</div></div><div class="v">${pct}%</div><div class="d">${complete} of ${total} packs complete</div></div>
+        <div class="card kpi"><div class="kpi-top"><span class="l">Approved</span><div class="kpi-ic">${ic("check", 18)}</div></div><div class="v">${approved}</div><div class="d">${rejected} rejected</div></div>
+        <div class="card kpi"><div class="kpi-top"><span class="l">Pending approvals</span><div class="kpi-ic">${ic("shield", 18)}</div></div><div class="v">${pending}</div><div class="d">Waiting for your decision</div></div>
+      </div>
+      <div class="grid2">
+        <section class="card card-b"><div class="card-h" style="padding:0 0 14px;border:0"><h2>Trend over time</h2><span class="sm muted">${S.history.length} point${S.history.length === 1 ? "" : "s"}</span></div>${lineChartHtml()}</section>
+        <section class="card card-b"><div class="card-h" style="padding:0 0 14px;border:0"><h2>Pack completion</h2></div>
+          <div class="row" style="gap:16px;margin-bottom:18px"><div style="position:relative;width:76px;height:76px">${ring(total ? complete / total : 0, 76)}<b style="position:absolute;inset:0;display:grid;place-items:center;font-size:15px">${pct}%</b></div><div class="sm muted">Complete packs out of all tracked tenders.</div></div>
+          <div class="hbar" style="margin-bottom:12px">${seg(complete, "var(--ok)")}${seg(review, "var(--warn)")}${seg(inc, "var(--bad)")}</div>
+          <div class="kv-row"><span>Complete</span><b>${complete}</b></div>
+          <div class="kv-row"><span>Needs verification</span><b>${review}</b></div>
+          <div class="kv-row"><span>Incomplete</span><b>${inc}</b></div>
+        </section>
+      </div>
+      <section class="card card-b" style="margin-top:var(--s2)"><div class="card-h" style="padding:0 0 14px;border:0"><h2>Approvals</h2><span class="sm muted">${approved + rejected + pending} total</span></div>
+        ${bar("Approved", approved, "var(--ok)")}${bar("Pending", pending, "var(--brand)")}${bar("Rejected", rejected, "var(--bad)")}
+      </section>`;
+  }
+
+  /* ---- Notifications ---- */
+  function computeAlerts() {
+    const out = [];
+    S.tenders.forEach(t => {
+      const e = evaluate(t);
+      if (e.deadline.latest && !e.deadline.expired) {
+        const hrs = (new Date(e.deadline.latest) - Date.now()) / 36e5;
+        if (hrs <= 72) out.push({ id: "dl:" + t.id, tid: t.id, tone: hrs <= 24 ? "bad" : "warn", title: hrs <= 24 ? "Deadline within 24 hours" : `Deadline in ${Math.ceil(hrs / 24)} days`, body: `${t.title} closes ${dt(e.deadline.latest)}` });
+      }
+      if (e.deadline.unverified) out.push({ id: "un:" + t.id, tid: t.id, tone: "warn", title: "Corrigendum not verified", body: t.title });
+    });
+    S.approvals.filter(a => a.status === "pending").forEach(a => out.push({ id: "ap:" + a.id, tid: a.tid, tone: "info", title: "Approval waiting for you", body: `${a.title} · ${a.tid}` }));
+    return out;
+  }
+
+  const NOTE = { sent: new Set() };
+  function browserAlert(item) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    if (NOTE.sent.has(item.id)) return;
+    NOTE.sent.add(item.id);
+    try { new Notification("TenderPilot AI: " + item.title, { body: item.body, tag: item.id }); }
+    catch (err) { /* blocked in this view; in-app alerts still work */ }
+  }
+  function checkAlerts() { computeAlerts().forEach(browserAlert); renderBell(); }
+  async function enableAlerts() {
+    if (!("Notification" in window)) { toast("Browser alerts are not supported here"); return; }
+    try {
+      const p = await Notification.requestPermission();
+      toast(p === "granted" ? "Browser alerts are on" : "Browser alerts not allowed. In-app alerts still work.");
+    } catch (err) { toast("Browser alerts are blocked in this view. In-app alerts still work."); }
+    renderBell(); checkAlerts();
+  }
+  function notifPanel(items) {
+    const perm = "Notification" in window ? Notification.permission : "unsupported";
+    const permText = { granted: "Browser alerts are on", denied: "Browser alerts are blocked", unsupported: "Browser alerts are not supported here", default: "Browser alerts are off" }[perm];
+    return `<div class="notif card" role="dialog" aria-label="Notifications">
+      <div class="card-h"><h2>Notifications</h2><button class="btn ghost sm" data-a="notif">Close</button></div>
+      <div class="card-b" style="padding:8px 16px">${items.length ? `<ul class="nlist">${items.map(i => `<li><span class="nd ${i.tone}"></span><div style="flex:1;min-width:0"><div class="strong">${esc(i.title)}</div><div class="sm muted">${esc(i.body)}</div></div><button class="btn sm" data-a="open" data-id="${esc(i.tid)}">Open</button></li>`).join("")}</ul>` : `<div class="empty"><b>All clear</b><span>No deadlines or approvals need attention.</span></div>`}</div>
+      <div class="card-f row" style="justify-content:space-between"><span class="sm muted">${permText}</span>${perm === "default" ? `<button class="btn sm primary" data-a="enable-alerts">Turn on alerts</button>` : ""}</div>
+    </div>`;
+  }
+  function renderBell() {
+    const items = computeAlerts();
+    const b = $("#bell");
+    if (b) b.innerHTML = ic("bell", 16) + (items.length ? `<span class="bdot">${items.length}</span>` : "");
+    const host = $("#notifHost");
+    if (host) host.innerHTML = S.notifOpen ? notifPanel(items) : "";
+  }
+
+  /* ---- Saving and loading (db capability, private per viewer) ---- */
+  function snapshotState() {
+    return JSON.parse(JSON.stringify({ profile: S.profile, tenders: S.tenders, approvals: S.approvals, log: S.log.slice(0, 300), runs: S.runs, seq: S.seq, history: S.history.slice(-200) }));
+  }
+  function restore(d) {
+    const date = v => v ? new Date(v) : null;
+    S.profile = d.profile || null;
+    S.tenders = (d.tenders || []).map(t => mk(Object.assign({}, t, { retrieved: date(t.retrieved) || new Date() })));
+    S.approvals = (d.approvals || []).map(a => Object.assign({}, a, { at: date(a.at), decidedAt: date(a.decidedAt) }));
+    S.log = (d.log || []).map(l => Object.assign({}, l, { at: date(l.at) || new Date() }));
+    S.runs = (d.runs || []).map(r => Object.assign({}, r, { at: date(r.at) || new Date() }));
+    S.seq = d.seq || S.seq;
+    S.history = (d.history || []).slice(-200);
+  }
+  function persist() {
+    if (!STORE.ready || !STORE.doc) return;
+    clearTimeout(STORE.t);
+    STORE.t = setTimeout(() => { STORE.doc.set(snapshotState()).catch(() => toast("Could not save changes")); }, 500);
+  }
+  async function boot() {
+    try {
+      const C = window.claude;
+      if (C && typeof C.use === "function") {
+        const [db, user] = await Promise.all([C.use("db"), C.use("user")]);
+        const uid = db && user ? await user.id() : null;
+        if (db && uid) {
+          STORE.doc = db.doc("data/users/" + uid + "/workspace");
+          const snap = await STORE.doc.get();
+          if (snap.exists) restore(snap.data() || {});
+        }
+      }
+    } catch (err) { console.warn("Saving is unavailable in this view", err); }
+    STORE.ready = true;
+    render();
+  }
+
+  /* ---- Export and ZIP (downloads capability) ---- */
+  async function saveFile(filename, data) {
+    // Prefer the host download API when available; otherwise use a browser-native download.
+    try {
+      if (DL && typeof DL.save === "function") {
+        await DL.save({ filename, data });
+        toast("File downloaded");
+        return;
+      }
+      const isBytes = data instanceof Uint8Array || data instanceof ArrayBuffer;
+      const payload = isBytes ? data : "\uFEFF" + String(data ?? "");
+      const blob = new Blob([payload], { type: filename.toLowerCase().endsWith(".csv") ? "text/csv;charset=utf-8" : filename.toLowerCase().endsWith(".zip") ? "application/zip" : "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      toast("Download started");
+    } catch (err) {
+      console.error("File download failed", err);
+      toast("Download failed. Try opening this HTML in Chrome or Edge.");
+    }
+  }
+
+  const CRC_T = (() => { const t = []; for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function makeZip(files) {
+    const enc = new TextEncoder(), u16 = v => [v & 255, (v >>> 8) & 255], u32 = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+    const parts = [], central = []; let offset = 0;
+    files.forEach(f => {
+      const name = enc.encode(f.name), data = enc.encode(f.text), crc = crc32(data);
+      const local = new Uint8Array([0x50, 0x4b, 0x03, 0x04, ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)]);
+      const cen = new Uint8Array([0x50, 0x4b, 0x01, 0x02, ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(offset)]);
+      parts.push(local, name, data);
+      central.push(cen, name);
+      offset += local.length + name.length + data.length;
+    });
+    const cenSize = central.reduce((s, c) => s + c.length, 0);
+    const end = new Uint8Array([0x50, 0x4b, 0x05, 0x06, ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length), ...u32(cenSize), ...u32(offset), ...u16(0)]);
+    const all = [...parts, ...central, end];
+    const total = all.reduce((s, p) => s + p.length, 0), out = new Uint8Array(total);
+    let p = 0; all.forEach(x => { out.set(x, p); p += x.length; });
+    return out;
+  }
+  function buildZip(t) {
+    const e = evaluate(t);
+    const checklist = toCsv([["Document", "Status"], ...e.rows.map(r => [r.n, r.s])]);
+    const manifest = JSON.stringify({
+      tender: { id: t.id, title: t.title, department: t.dept, value: t.value, closing: t.closing, source: t.sourceUrl || null },
+      deadline: { used: e.deadline.latest, basis: e.deadline.state, unverified: e.deadline.unverified },
+      eligibility: e.overall, pack: e.pack.status, emd: e.emd,
+      generated: new Date().toISOString(),
+      note: "This ZIP contains the checklist and manifest only. Tender file contents are not included."
+    }, null, 2);
+    return saveFile(`tenderpilot-pack-${t.id}-${stamp()}.zip`, makeZip([{ name: "CHECKLIST.csv", text: checklist }, { name: "MANIFEST.json", text: manifest }]));
+  }
+  function exportTendersCsv() {
+    const head = ["Tender ID", "Title", "Department", "Category", "Region", "Value (INR)", "Latest deadline", "Deadline basis", "Match", "Eligibility", "Pack status", "Files present", "Missing or not verified", "EMD", "Origin", "Evidence"];
+    const body = S.tenders.map(t => {
+      const e = evaluate(t);
+      return [t.id, t.title, t.dept, t.category, t.region, t.value,
+        e.deadline.unverified ? "UNVERIFIED" : e.deadline.latest ? dt(e.deadline.latest) : "",
+        e.deadline.state, e.filterStatus, e.overall, e.pack.status,
+        `${e.rows.filter(r => r.s === "PRESENT").length}/${e.rows.length}`,
+        e.rows.filter(r => r.s !== "PRESENT").map(r => r.n).join("; "),
+        e.emd.status, t.origin, evidenceLevel(t).label];
+    });
+    saveFile(`tenderpilot-tenders-${stamp()}.csv`, toCsv([head, ...body]));
+  }
+  function exportChecklistCsv() {
+    const body = S.tenders.flatMap(t => evaluate(t).rows.map(r => [t.id, t.title, r.n, r.s]));
+    saveFile(`tenderpilot-checklist-${stamp()}.csv`, toCsv([["Tender ID", "Tender", "Document", "Status"], ...body]));
+  }
+  function exportActivityCsv() {
+    saveFile(`tenderpilot-activity-${stamp()}.csv`, toCsv([["Execution ID", "Time", "Step", "Event", "Source", "Result", "Failure"], ...S.log.map(l => [l.id, l.at.toLocaleString("en-IN"), l.step, l.msg, l.source, l.tone, l.failure])]));
+  }
+  function exportPackReport(t) {
+    if (!t) return;
+    const e = evaluate(t);
+    const apps = S.approvals.filter(a => a.tid === t.id);
+    const docRows = e.rows.map(r => `<tr><td>${esc(r.n)}</td><td>${esc(r.s)}</td></tr>`).join("") || `<tr><td colspan="2">No required document list entered</td></tr>`;
+    const appRows = apps.map(a => `<tr><td>${esc(a.id)}</td><td>${esc(a.title)}</td><td>${esc(a.status)}</td><td>${a.decidedAt ? esc(dt(a.decidedAt)) : "—"}</td></tr>`).join("") || `<tr><td colspan="4">No approval records</td></tr>`;
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Pack report ${esc(t.id)}</title><style>body{font-family:Inter,system-ui,sans-serif;color:#0F172A;max-width:880px;margin:40px auto;padding:0 24px;line-height:1.5}h1{font-size:24px;margin:0 0 4px}h2{font-size:16px;margin-top:28px}.muted{color:#64748B}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #E2E8F0;font-size:14px}th{background:#F1F5F9;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#64748B}.note{background:#EEF2FF;color:#3730A3;padding:12px 14px;border-radius:12px;font-size:13px;margin-top:24px}</style></head><body>
+<p class="muted">TenderPilot AI · Pack report</p>
+<h1>${esc(t.title)}</h1>
+<p class="muted">${esc(t.id)} · ${esc(t.dept || "Department not stated")} · Generated ${esc(new Date().toLocaleString("en-IN"))}</p>
+<table><tr><th>Deadline used</th><td>${e.deadline.unverified ? "UNVERIFIED" : esc(dt(e.deadline.latest))}</td></tr><tr><th>Deadline basis</th><td>${esc(e.deadline.state)}</td></tr><tr><th>Eligibility</th><td>${esc(e.overall)}</td></tr><tr><th>Pack status</th><td>${esc(e.pack.status)}</td></tr><tr><th>EMD</th><td>${esc(e.emd.status)}${e.emd.amount ? " · " + esc(money(e.emd.amount)) : ""}</td></tr><tr><th>Source</th><td>${esc(t.sourceUrl || "Not entered")}</td></tr></table>
+<h2>Document checklist</h2><table><tr><th>Document</th><th>Status</th></tr>${docRows}</table>
+<h2>Approvals</h2><table><tr><th>ID</th><th>Action</th><th>Status</th><th>Decided</th></tr>${appRows}</table>
+<p class="note">This report reflects the data entered for this tender. A potential match is a guide, not an official eligibility decision. TenderPilot AI does not submit bids or make payments.</p>
+</body></html>`;
+    saveFile(`tenderpilot-pack-${t.id}-${stamp()}.html`, html);
+  }
+
+  /* ---- Views ---- */
+  function listFiltered() {
+    const q = S.f.q.trim().toLowerCase();
+    return S.tenders.filter(t => {
+      const e = evaluate(t);
+      return (!q || (t.title + " " + t.dept).toLowerCase().includes(q))
+        && (S.f.cat === "all" || t.category === S.f.cat)
+        && (S.f.status === "all" || e.pack.status === S.f.status || e.filterStatus === S.f.status);
+    });
+  }
+
+  function tenderRows(list) {
+    return list.map(t => {
+      const e = evaluate(t);
+      const present = e.rows.filter(r => r.s === "PRESENT").length;
+      const pct = e.rows.length ? present / e.rows.length : 0;
+      const ev = evidenceLevel(t);
+      return `<tr class="row-link" tabindex="0" data-a="open" data-id="${t.id}">
+        <td><div class="tt"><div class="tile">${initials(t.dept || t.title)}</div><div style="min-width:0"><div class="strong">${esc(t.title)}</div><div class="muted sm">${esc(t.id)} · ${esc(t.dept || "Department not stated")}</div></div></div></td>
+        <td>${badge(t.origin === "synthetic" ? "SYNTHETIC" : "MANUAL")}</td>
+        <td class="sm">${e.deadline.unverified ? badge("UNVERIFIED") : e.deadline.expired ? badge("EXPIRED") : dt(e.deadline.latest)}</td>
+        <td>${badge(e.filterStatus)}</td>
+        <td>${badge(e.overall)}</td>
+        <td><div class="row" style="gap:10px;flex-wrap:nowrap"><div class="bar"><i style="width:${pct * 100}%"></i></div>${badge(e.pack.status)}</div></td>
+        <td>${chip(ev.label, ev.tone)}</td>
+        <td>${badge(e.emd.status)}</td></tr>`;
+    }).join("");
+  }
+
+  function renderTbl() {
+    const el = $("#tbl");
+    if (!el) return;
+    const list = listFiltered();
+    el.innerHTML = list.length
+      ? `<div class="tw"><table><thead><tr><th>Tender</th><th>Origin</th><th>Latest deadline</th><th>Match</th><th>Eligibility</th><th>Pack</th><th>Evidence</th><th>EMD</th></tr></thead><tbody>${tenderRows(list)}</tbody></table></div>`
+      : `<div class="empty"><div class="ei">${ic("search", 22)}</div><b>${S.tenders.length ? "No tenders match these filters" : "No tenders yet"}</b><span>${S.tenders.length ? "Try a different status or category." : "Add a tender, or load the synthetic demo to test the tool."}</span></div>`;
+  }
+
+  function vDashboard() {
+    const ev = S.tenders.map(t => ({ t, e: evaluate(t) }));
+    const matches = ev.filter(x => x.e.filterStatus === "Potential match").length;
+    const soon = ev.filter(x => x.e.deadline.latest && daysLeft(x.e.deadline.latest) >= 0 && daysLeft(x.e.deadline.latest) <= 7).length;
+    const incomplete = ev.filter(x => x.e.pack.status === "INCOMPLETE").length;
+    const pending = S.approvals.filter(a => a.status === "pending");
+    const attention = ev.filter(x => x.e.pack.status !== "COMPLETE" || x.e.deadline.expired || x.e.deadline.unverified || x.e.emd.status === "YES").slice(0, 6);
+    const h = new Date().getHours();
+    const greet = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+    const name = S.profile ? S.profile.company : "there";
+    return `
+      <section class="hero">
+        <div style="position:relative;z-index:1">
+          <div class="eyebrow" style="color:rgba(255,255,255,.8)">${new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</div>
+          <h2>${greet}, ${esc(name)}</h2>
+          <p>${S.tenders.length ? `${attention.length} tender${attention.length === 1 ? "" : "s"} need your attention and ${pending.length} approval${pending.length === 1 ? " is" : "s are"} waiting for you.` : "Set up your profile, add a tender or load the demo to see matches, deadlines and document packs here."}</p>
+          <div class="row" style="margin-top:20px;gap:10px">
+            ${S.tenders.length ? `<button class="btn" data-a="run">${ic("play", 14)} Run agent</button>` : `<button class="btn" data-a="go" data-v="add">${ic("plus", 14)} Add tender</button><button class="btn ghost" data-a="demo">Load synthetic demo</button>`}
+            <button class="btn ghost" data-a="go" data-v="tenders">Browse tenders</button>
+          </div>
+        </div>
+        <div class="hero-stats" style="position:relative;z-index:1">
+          <div class="hero-stat"><b>${matches}</b><span>Potential matches</span></div>
+          <div class="hero-stat"><b>${pending.length}</b><span>Pending approvals</span></div>
+        </div>
+      </section>
+      ${!S.profile ? `<div class="callout info"><div class="ci">${ic("user", 15)}</div><div><b>Finish your setup.</b> Save your business profile so TenderPilot can check tenders against your category, location and budget.<div style="margin-top:8px"><button class="btn sm" data-a="go" data-v="profile">Set up profile</button></div></div></div>` : ""}
+      <div class="grid-kpi">
+        <div class="card kpi"><div class="kpi-top"><span class="l">Potential matches</span><div class="kpi-ic">${ic("target", 18)}</div></div><div class="v">${matches}</div><div class="d">Of ${S.tenders.length} tenders tracked</div></div>
+        <div class="card kpi"><div class="kpi-top"><span class="l">Deadlines in 7 days</span><div class="kpi-ic">${ic("cal", 18)}</div></div><div class="v">${soon}</div><div class="d">Using the latest verified date</div></div>
+        <div class="card kpi"><div class="kpi-top"><span class="l">Incomplete packs</span><div class="kpi-ic">${ic("folder", 18)}</div></div><div class="v">${incomplete}</div><div class="d">Missing or failed files</div></div>
+        <div class="card kpi"><div class="kpi-top"><span class="l">Pending approvals</span><div class="kpi-ic">${ic("shield", 18)}</div></div><div class="v">${pending.length}</div><div class="d">Waiting for your decision</div></div>
+      </div>
+      <div class="grid2">
+        <section class="card">
+          <div class="card-h"><h2>Needs attention</h2><button class="btn ghost sm" data-a="go" data-v="tenders">View all</button></div>
+          <div class="card-b">${attention.length ? `<ul class="list">${attention.map(x => `<li><div class="tt"><div class="tile">${initials(x.t.dept || x.t.title)}</div><div style="min-width:0"><div class="strong">${esc(x.t.title)}</div><div class="muted sm">${esc(x.t.id)} · ${dt(x.e.deadline.latest)}</div></div></div><div class="row" style="justify-content:flex-end">${badge(x.e.pack.status)}${x.e.emd.status === "YES" ? badge("YES") : ""}${x.e.deadline.unverified ? badge("UNVERIFIED") : ""}<button class="btn sm" data-a="open" data-id="${x.t.id}">Open</button></div></li>`).join("")}</ul>`
+            : `<div class="empty"><div class="ei">${ic("check", 22)}</div><b>All clear</b><span>Nothing needs attention right now.</span></div>`}</div>
+        </section>
+        <section class="card">
+          <div class="card-h"><h2>Approval inbox</h2>${chip(String(pending.length), "t-brand")}</div>
+          <div class="card-b">${pending.length ? pending.slice(0, 3).map(a => `<div class="ap"><div class="tile" style="border-radius:10px">${ic(a.type === "emd" ? "shield" : "folder", 16)}</div><div class="body"><div class="strong">${esc(a.title)}</div><div class="muted sm">${esc(a.tid)} · ${esc(a.dest || "")}</div><div class="acts"><button class="btn ok sm" data-a="decide" data-id="${a.id}" data-ok="1">Approve</button><button class="btn sm" data-a="decide" data-id="${a.id}" data-ok="0">Reject</button></div></div></div>`).join("") : `<div class="empty"><div class="ei">${ic("shield", 22)}</div><b>Inbox is empty</b><span>Protected actions will appear here for your approval.</span></div>`}</div>
+        </section>
+      </div>
+      <section class="card" style="margin-top:var(--s2)">
+        <div class="card-h"><h2>Recent activity</h2><button class="btn ghost sm" data-a="go" data-v="activity">Full log</button></div>
+        <div class="card-b">${S.log.length ? `<ul class="tl">${S.log.slice(0, 6).map(l => `<li><span class="d ${l.tone}"></span><span>${esc(l.msg)}</span><time>${l.id}</time></li>`).join("")}</ul>` : `<div class="empty"><div class="ei">${ic("pulse", 22)}</div><b>No activity yet</b><span>Runs, approvals and changes are recorded here.</span></div>`}</div>
+      </section>`;
+  }
+
+  function vProfile() {
+    const p = S.profile || {};
+    return `<div class="page-h"><div><div class="eyebrow">Setup</div><h1 class="h1">Business profile</h1><p class="sub">Enter your own details. The agent only uses what you save here, and it is saved only to your private workspace.</p></div></div>
+      <div class="grid2">
+        <form id="profileForm" class="card card-b form">
+          <div class="section-t full">Company</div>
+          <label class="fl full">Company name<input class="inp" name="company" required value="${esc(p.company || "")}" placeholder="Your company name" /></label>
+          <label class="fl">Working field<select class="inp" name="category" required><option value="">Select</option>${CATS.map(c => `<option ${p.category === c ? "selected" : ""}>${c}</option>`).join("")}</select></label>
+          <label class="fl">Location or state<input class="inp" name="region" required value="${esc(p.region || "")}" placeholder="e.g. Maharashtra" /></label>
+          <label class="fl">Annual turnover (₹)<input class="inp" name="turnover" type="number" min="0" value="${p.turnover ?? ""}" placeholder="e.g. 5000000" /></label>
+          <label class="fl">Similar-work experience (years)<input class="inp" name="experience" type="number" min="0" step="1" value="${p.experience ?? ""}" placeholder="e.g. 3" /></label>
+          <label class="fl">MSME / Udyam status<select class="inp" name="msme"><option value="unknown" ${(p.msme || "unknown") === "unknown" ? "selected" : ""}>Not specified</option><option value="yes" ${p.msme === "yes" ? "selected" : ""}>Registered</option><option value="no" ${p.msme === "no" ? "selected" : ""}>Not registered</option></select></label>
+          <div class="section-t full">Budget range</div>
+          <label class="fl">Minimum (₹)<input class="inp" name="min" type="number" min="0" step="1000" required value="${p.min ?? ""}" /></label>
+          <label class="fl">Maximum (₹)<input class="inp" name="max" type="number" min="0" step="1000" required value="${p.max ?? ""}" /></label>
+          <div class="full row" style="justify-content:space-between;margin-top:6px"><span class="hint">Changes apply to the next agent run.</span><button class="btn primary" type="submit">Save profile</button></div>
+        </form>
+        <aside class="card card-b stack">
+          <div class="kpi-ic" style="width:44px;height:44px">${ic("user", 20)}</div>
+          <h2 style="font-size:15px;font-weight:650">How your profile is used</h2>
+          <ul class="list" style="margin-top:4px">
+            <li><span class="sm muted">Category, region and budget decide whether a tender is a potential match.</span></li>
+            <li><span class="sm muted">Your data is private to your account. Other people cannot see it.</span></li>
+            <li><span class="sm muted">A match is a guide, not an official eligibility decision.</span></li>
+          </ul>
+        </aside>
+      </div>`;
+  }
+
+  function vTenders() {
+    const counts = {
+      all: S.tenders.length,
+      "Potential match": S.tenders.filter(t => evaluate(t).filterStatus === "Potential match").length,
+      "Review required": S.tenders.filter(t => evaluate(t).filterStatus === "Review required").length,
+      "No match": S.tenders.filter(t => evaluate(t).filterStatus === "No match").length
+    };
+    const seg = [["all", "All"], ["Potential match", "Potential match"], ["Review required", "Review required"], ["No match", "No match"]];
+    return `<div class="page-h"><div><div class="eyebrow">Discovery</div><h1 class="h1">Tender explorer</h1><p class="sub">Every match shows its evidence. Nothing is marked complete without verification.</p></div>
+      <div class="row"><button class="btn" data-a="exp" data-k="tenders">${ic("doc", 15)} Export CSV</button><button class="btn" data-a="go" data-v="add">${ic("plus", 15)} Add tender</button><button class="btn primary" data-a="run">${ic("play", 14)} Run agent</button></div></div>
+      <div class="demo"><span>Want to try the tool first? Load the labelled synthetic demo. It is not a real tender.</span><button class="btn sm" data-a="demo">Load synthetic demo</button></div>
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Filter by match">${seg.map(([v, l]) => `<button aria-pressed="${S.f.status === v}" data-a="setf" data-k="status" data-v="${esc(v)}">${l} <span class="c">${counts[v] ?? 0}</span></button>`).join("")}</div>
+        <div class="row"><div class="search">${ic("search", 15)}<input class="search-input" type="search" placeholder="Search title or department" data-f="q" value="${esc(S.f.q)}" aria-label="Search tenders" /></div>
+        <select class="pick" data-f="cat" aria-label="Filter by category"><option value="all">All categories</option>${CATS.map(c => `<option ${S.f.cat === c ? "selected" : ""}>${c}</option>`).join("")}</select></div>
+      </div>
+      <section class="card"><div id="tbl"></div></section>`;
+  }
+
+  function vAdd() {
+    return `<button class="btn ghost" data-a="go" data-v="tenders">${ic("back", 15)} Tender explorer</button>
+      <div class="page-h" style="margin-top:12px"><div><div class="eyebrow">New tender</div><h1 class="h1">Add a tender</h1><p class="sub">Copy the details from the official notice. Only what you enter is checked, and the source link is kept as evidence.</p></div></div>
+      <form id="tenderForm" class="card card-b form">
+        <div class="section-t full">Details</div>
+        <label class="fl full">Tender title<input class="inp" name="title" required placeholder="As written in the notice" /></label>
+        <label class="fl">Department<input class="inp" name="dept" placeholder="Issuing department" /></label>
+        <label class="fl">Category<select class="inp" name="category"><option value="">Not stated</option>${CATS.map(c => `<option>${c}</option>`).join("")}</select></label>
+        <label class="fl">Region<input class="inp" name="region" placeholder="e.g. Maharashtra" /></label>
+        <label class="fl">Estimated value (₹)<input class="inp" name="value" type="number" min="0" step="1000" /></label>
+        <label class="fl">Closing date and time<input class="inp" name="closing" type="datetime-local" /></label>
+        <label class="fl full">Official portal link (evidence source)<input class="inp" name="sourceUrl" type="url" placeholder="https://" /></label>
+        <div class="section-t full">Notice and documents</div>
+        <label class="fl full">Notice text <small>Paste the full text so EMD and conditions can be checked</small><textarea class="inp" name="notice" rows="5"></textarea></label>
+        <label class="fl">Required documents <small>One per line</small><textarea class="inp" name="required" rows="4" placeholder="Tender_Notice&#10;Technical_Specification&#10;Annexure_A"></textarea></label>
+        <label class="fl">Files you already hold <small>One per line</small><textarea class="inp" name="files" rows="4"></textarea></label>
+        <label class="fl full">Documents available on the portal <small>One per line</small><textarea class="inp" name="available" rows="2"></textarea></label>
+        <div class="full row" style="justify-content:flex-end"><button class="btn ghost" type="button" data-a="go" data-v="tenders">Cancel</button><button class="btn primary" type="submit">Add tender</button></div>
+      </form>`;
+  }
+
+  function stepsFor(t, e) {
+    const approved = S.approvals.some(a => a.tid === t.id && a.type === "collect" && a.status === "approved");
+    const pend = pendingFor(t.id).length > 0;
+    const cv = t.corrigenda.some(c => c.verified);
+    return [
+      { n: "Discovered", s: "s-done", d: t.origin === "synthetic" ? "Synthetic demo record" : "Entered by you" },
+      { n: "Eligibility", s: e.overall === "MATCH" ? "s-done" : e.overall === "MISMATCH" ? "s-bad" : "s-warn", d: e.overall.toLowerCase() },
+      { n: "Corrigendum", s: e.deadline.unverified ? "s-warn" : cv ? "s-done" : "", d: e.deadline.state },
+      { n: "Documents", s: e.pack.status === "COMPLETE" ? "s-done" : e.pack.status === "INCOMPLETE" ? "s-bad" : "s-warn", d: e.pack.status.toLowerCase() },
+      { n: "Human approval", s: pend ? "s-active" : approved ? "s-done" : "", d: pend ? "Waiting for you" : approved ? "Approved and logged" : "Nothing pending" },
+      { n: "Verified", s: e.pack.status === "COMPLETE" && !e.deadline.unverified && approved ? "s-done" : "", d: "Independent re-check" }
+    ];
+  }
+
+  function vDetail() {
+    const t = S.tenders.find(x => x.id === S.cur);
+    if (!t) { S.view = "tenders"; return vTenders(); }
+    const e = evaluate(t);
+    const tabs = [["overview", "Overview"], ["eligibility", "Eligibility"], ["corrigenda", "Corrigenda"], ["documents", "Documents"], ["emd", "EMD"], ["evidence", "Evidence"], ["verify", "Verification"]];
+    const body = { overview: tabOverview, eligibility: tabEligibility, corrigenda: tabCorr, documents: tabDocs, emd: tabEmd, evidence: tabEvidence, verify: tabVerify }[S.tab](t, e);
+    const present = e.rows.filter(r => r.s === "PRESENT").length;
+    const pct = e.rows.length ? present / e.rows.length : 0;
+    const days = e.deadline.latest ? daysLeft(e.deadline.latest) : null;
+    const stepHtml = stepsFor(t, e).map(s => `<li class="${s.s}"><span class="dot">${s.s === "s-done" ? ic("check", 12) : ""}</span><div><div class="sn">${s.n}</div><div class="sd">${esc(s.d)}</div></div></li>`).join("");
+    return `<button class="btn ghost sm" data-a="go" data-v="tenders" style="margin-left:-8px">${ic("back", 14)} Tender explorer</button>
+      <div class="head-row" style="margin-top:8px">
+        <div>
+          <div class="row" style="gap:8px">${badge(t.origin === "synthetic" ? "SYNTHETIC" : "MANUAL")}${badge(e.filterStatus)}${badge(e.pack.status)}</div>
+          <h1>${esc(t.title)}</h1>
+          <div class="row muted sm" style="gap:14px">${t.dept ? `<span>${esc(t.dept)}</span>` : ""}<span>${esc(t.id)}</span>${t.value != null ? `<span>${money(t.value)}</span>` : ""}${t.region ? `<span>${esc(t.region)}</span>` : ""}</div>
+        </div>
+        <div class="row"><button class="btn" data-a="exp" data-k="pack" data-id="${t.id}">${ic("doc", 14)} Export pack report</button><button class="btn danger" data-a="del" data-id="${t.id}">${ic("trash", 14)} Delete</button></div>
+      </div>
+      <div class="detail-grid">
+        <div>
+          <div class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" aria-selected="${S.tab === k}" data-a="tab" data-v="${k}">${l}</button>`).join("")}</div>
+          <section class="card card-b">${body}</section>
+        </div>
+        <aside class="side-sum">
+          <section class="card card-b">
+            <div class="sm muted" style="font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:11px">Closes in</div>
+            <div class="countdown" style="margin-top:6px">${e.deadline.unverified ? "Unverified" : e.deadline.expired ? "Expired" : days != null ? `${days} day${days === 1 ? "" : "s"}` : "—"}</div>
+            <div class="sm muted" style="margin-top:4px">${e.deadline.unverified ? "Corrigendum not confirmed" : dt(e.deadline.latest)}</div>
+          </section>
+          <section class="card card-b ring-row">
+            ${ring(pct, 60)}
+            <div><div class="big">${present}/${e.rows.length || 0}</div><div class="sm muted">Documents present</div><div style="margin-top:6px">${badge(e.pack.status)}</div></div>
+          </section>
+          <section class="card card-b">
+            <div class="strong" style="margin-bottom:14px">Progress</div>
+            <ol class="stepper">${stepHtml}</ol>
+          </section>
+        </aside>
+      </div>`;
+  }
+
+  function tabOverview(t, e) {
+    const pend = pendingFor(t.id);
+    const tone = pend.length ? "info" : e.pack.status === "COMPLETE" ? "ok" : "warn";
+    const msg = pend.length ? `Waiting for your decision: ${pend.map(a => a.title).join(", ")}.`
+      : e.pack.status === "COMPLETE" ? "All required documents are present. Review the verification tab and close the check."
+      : "Resolve the document or deadline items in the other tabs before relying on this tender.";
+    return `<div class="metrics">
+        <div class="metric"><span>Deadline basis</span><b>${esc(e.deadline.state)}</b></div>
+        <div class="metric"><span>Eligibility</span><b>${esc(e.overall)}</b></div>
+        <div class="metric"><span>EMD</span><b>${e.emd.status === "YES" ? money(e.emd.amount) + " required" : e.emd.status}</b></div>
+      </div>
+      <div class="callout ${tone}"><div class="ci">${ic(pend.length ? "clock" : tone === "ok" ? "check" : "alert", 15)}</div><div><b>Next step</b><div>${esc(msg)}</div></div></div>
+      <p class="sm muted">Match status is a guide. Eligibility depends on the full tender conditions. TenderPilot does not guarantee official eligibility.</p>`;
+  }
+
+  function tabEligibility(t, e) {
+    return `<div class="tw"><table><thead><tr><th>Criterion</th><th>Result</th><th>Reason</th></tr></thead><tbody>
+      ${e.items.map(i => `<tr><td class="strong">${esc(i.k)}</td><td>${badge(i.status)}</td><td class="sm muted">${esc(i.detail)}</td></tr>`).join("")}
+      </tbody></table></div>
+      <div class="callout info"><div class="ci">${ic("shield", 15)}</div><div>Overall ${badge(e.overall)}<div class="sm" style="margin-top:6px">Any MISMATCH makes this a no match. Any manual review or unknown item must be checked by you.</div></div></div>`;
+  }
+
+  function tabCorr(t, e) {
+    const list = t.corrigenda.length ? t.corrigenda.map(c => `<li><div><div class="strong">Closing ${dt(c.closing)}</div><div class="muted sm">${esc(c.source || "No source given")}</div></div>${c.verified ? badge("Verified") : badge("UNVERIFIED")}</li>`).join("")
+      : `<li class="muted">No corrigenda recorded yet.</li>`;
+    const latestVer = e.deadline.latest && !e.deadline.unverified && t.corrigenda.some(c => c.verified);
+    return `<div class="metrics">
+        <div class="metric"><span>Original closing</span><b>${dt(t.closing)}</b></div>
+        <div class="metric"><span>Latest verified</span><b>${latestVer ? dt(e.deadline.latest) : "None verified"}</b></div>
+        <div class="metric"><span>Deadline used</span><b>${e.deadline.unverified ? "UNVERIFIED" : dt(e.deadline.latest)}</b></div>
+      </div>
+      <ul class="list">${list}</ul>
+      <div class="section-t" style="margin-top:20px">Record a corrigendum</div>
+      <form id="corrForm" data-tid="${t.id}" class="form" style="margin-top:12px">
+        <label class="fl">New closing date and time<input class="inp" name="closing" type="datetime-local" required /></label>
+        <label class="fl">Source or reference<input class="inp" name="source" placeholder="Portal link or corrigendum number" /></label>
+        <label class="check full"><input name="verified" type="checkbox" /> I checked this corrigendum on the official portal</label>
+        <div class="full row" style="justify-content:space-between"><span class="hint">Unchecked corrigenda are never used as the deadline.</span><button class="btn primary" type="submit">Save corrigendum</button></div>
+      </form>`;
+  }
+
+  function tabDocs(t, e) {
+    const hasPend = type => S.approvals.some(a => a.tid === t.id && a.type === type && a.status === "pending");
+    const act = e.rows.some(r => r.s === "NOT VERIFIED") && !hasPend("collect")
+      ? `<button class="btn primary sm" data-a="propose" data-v="collect" data-id="${t.id}">Request collection</button>` : "";
+    const retry = e.rows.some(r => r.s === "DOWNLOAD FAILED") && !hasPend("retry")
+      ? `<button class="btn sm" data-a="propose" data-v="retry" data-id="${t.id}">Request retry</button>` : "";
+    const zip = !hasPend("zip") ? `<button class="btn sm" data-a="propose" data-v="zip" data-id="${t.id}">${ic("folder", 13)} Request ZIP pack</button>` : "";
+    return `<div class="head-row" style="margin-bottom:14px"><div class="row" style="gap:10px">${badge(e.pack.status)}<span class="sm muted">${e.rows.filter(r => r.s === "PRESENT").length} of ${e.rows.length} present</span></div><div class="row">${act}${retry}${zip}</div></div>
+      ${e.rows.length ? `<div class="tw"><table><thead><tr><th>Document</th><th>Status</th></tr></thead><tbody>${e.rows.map(r => `<tr><td class="strong">${esc(r.n)}</td><td>${badge(r.s)}</td></tr>`).join("")}</tbody></table></div>`
+        : `<div class="empty"><div class="ei">${ic("doc", 22)}</div><b>No document list</b><span>Add the required documents in the tender form to check completeness.</span></div>`}
+      <div class="callout info"><div class="ci">${ic("shield", 15)}</div><div>Documents are collected only after you approve the request in the Approval center. ZIP packs also need approval before they are built.</div></div>
+      <div class="section-t" style="margin-top:20px">Files you hold</div>
+      <form id="filesForm" data-tid="${t.id}" class="stack" style="margin-top:10px">
+        <textarea class="inp" name="files" rows="4">${esc(t.files.join("\n"))}</textarea>
+        <div class="row" style="justify-content:space-between"><span class="hint">One file name per line</span><button class="btn sm" type="submit">Save file list</button></div>
+      </form>`;
+  }
+
+  function tabEmd(t, e) {
+    const pend = S.approvals.find(a => a.tid === t.id && a.type === "emd" && a.status === "pending");
+    const approved = S.approvals.find(a => a.tid === t.id && a.type === "emd" && a.status === "approved");
+    const action = e.emd.status === "YES" && !pend && !approved
+      ? `<button class="btn sm" data-a="propose" data-v="emd" data-id="${t.id}">Flag for approval</button>` : "";
+    return `<div class="metrics">
+        <div class="metric"><span>EMD required</span><b>${esc(e.emd.status)}</b></div>
+        <div class="metric"><span>Amount stated</span><b>${e.emd.amount ? money(e.emd.amount) : "Not stated"}</b></div>
+        <div class="metric"><span>Approval</span><b>${approved ? "Approved" : pend ? "Pending" : "None"}</b></div>
+      </div>
+      ${e.emd.excerpt ? `<div class="sm muted" style="font-weight:600">Evidence from the notice</div><blockquote>…${esc(e.emd.excerpt)}…</blockquote>` : `<p class="sm muted">${e.emd.status === "UNKNOWN" ? "Paste the notice text to check EMD." : "No EMD wording found in the pasted notice."}</p>`}
+      <div class="callout warn"><div class="ci">${ic("alert", 15)}</div><div>TenderPilot never makes an EMD payment. A flagged EMD only creates an approval item for you to review.</div></div>
+      <div class="row" style="margin-top:12px">${action}</div>`;
+  }
+
+  function tabEvidence(t, e) {
+    const src = /^https?:\/\//.test(t.sourceUrl || "") ? `<a href="${esc(t.sourceUrl)}" target="_blank" rel="noopener noreferrer">${esc(t.sourceUrl)}</a>` : `Entered manually`;
+    const retrieved = dt(t.retrieved);
+    const rows = [
+      ["Title", esc(t.title), src, retrieved, "—"],
+      ["Value", t.value != null ? money(t.value) : "Not published", src, retrieved, "—"],
+      ["Closing date", e.deadline.original ? dt(e.deadline.original) : "Not stated", src, retrieved, "—"],
+      ["Required documents", `${e.rows.length} listed`, src, retrieved, e.rows.map(r => r.n).join(", ") || "—"],
+      ["EMD", `${e.emd.status}${e.emd.amount ? " · " + money(e.emd.amount) : ""}`, src, retrieved, e.emd.excerpt ? "…" + esc(e.emd.excerpt) + "…" : "—"]
+    ];
+    const audit = S.log.filter(l => l.msg.includes(t.id)).slice(0, 8);
+    return `<div class="section-t">Extracted values and sources</div>
+      <div class="tw" style="margin-top:10px"><table><thead><tr><th>Field</th><th>Extracted value</th><th>Source</th><th>Retrieved</th><th>Excerpt</th></tr></thead><tbody>
+      ${rows.map(r => `<tr><td class="strong">${r[0]}</td><td>${r[1]}</td><td class="sm">${r[2]}</td><td class="sm">${r[3]}</td><td class="sm muted">${r[4]}</td></tr>`).join("")}
+      </tbody></table></div>
+      <div class="section-t" style="margin-top:20px">Notice text</div>
+      ${t.notice ? `<blockquote>${esc(t.notice)}</blockquote>` : `<p class="muted sm" style="margin-top:8px">No notice text entered. Evidence is limited to the values you entered.</p>`}
+      <div class="section-t" style="margin-top:20px">Activity for this tender</div>
+      ${audit.length ? `<ul class="tl" style="margin-top:10px">${audit.map(l => `<li><span class="d ${l.tone}"></span><span>${esc(l.msg)}</span><time>${l.id}</time></li>`).join("")}</ul>` : `<p class="muted sm" style="margin-top:8px">No activity yet. Run the agent to create records.</p>`}`;
+  }
+
+  function tabVerify(t, e) {
+    const collectOk = S.approvals.some(a => a.tid === t.id && a.type === "collect" && a.status === "approved");
+    const collectPend = pendingFor(t.id).some(a => a.type === "collect");
+    const emd = S.approvals.find(a => a.tid === t.id && a.type === "emd");
+    const checks = [
+      { k: "Deadline is verified", state: !e.deadline.unverified && !!e.deadline.latest ? "PASS" : "FAIL", d: e.deadline.unverified ? "Corrigendum not confirmed on the official portal" : e.deadline.latest ? `Used: ${dt(e.deadline.latest)}` : "No closing date entered" },
+      { k: "Deadline has not passed", state: !e.deadline.latest ? "FAIL" : e.deadline.expired ? "FAIL" : "PASS", d: e.deadline.expired ? "This closing date has already passed" : e.deadline.latest ? "Still open as far as the entered data shows" : "Cannot check without a closing date" },
+      { k: "Documents match the checklist", state: e.pack.status === "COMPLETE" ? "PASS" : "FAIL", d: e.pack.status === "COMPLETE" ? "Every required file is present" : `${e.rows.filter(r => r.s !== "PRESENT").length} item(s) not present` },
+      { k: "Collection approved and re-checked", state: collectPend ? "PENDING" : collectOk && e.rows.every(r => r.s !== "NOT VERIFIED") ? "PASS" : e.rows.some(r => r.s === "NOT VERIFIED") ? "FAIL" : "PASS", d: collectPend ? "Waiting for your approval" : collectOk ? "Approved and re-checked" : e.rows.some(r => r.s === "NOT VERIFIED") ? "Files are available but not collected yet" : "Not needed" },
+      { k: "EMD flagged for approval", state: e.emd.status !== "YES" ? "PASS" : !emd ? "FAIL" : emd.status === "approved" ? "PASS" : emd.status === "pending" ? "PENDING" : "FAIL", d: e.emd.status !== "YES" ? "No EMD required" : emd ? `EMD approval ${emd.status}` : "EMD found but not yet flagged" }
+    ];
+    const failed = checks.filter(c => c.state === "FAIL").length, pending = checks.filter(c => c.state === "PENDING").length;
+    const verdict = failed ? "Attention needed" : pending ? "Waiting for your decision" : "Verified";
+    const vTone = failed ? "bad" : pending ? "info" : "ok";
+    const icon = { PASS: ["ok", "check"], FAIL: ["bad", "x"], PENDING: ["info", "clock"] };
+    return `<div class="callout ${vTone}"><div class="ci">${ic(failed ? "x" : pending ? "clock" : "verify", 15)}</div><div><b>${verdict}</b><div class="sm" style="margin-top:4px">Checked independently from the pack. Failed and pending checks stay visible until they are resolved.</div></div></div>
+      ${checks.map(c => `<div class="vchk"><div class="ci" style="background:var(--${icon[c.state][0]}-soft);color:var(--${icon[c.state][0]})">${ic(icon[c.state][1], 14)}</div><div><div class="strong">${esc(c.k)}</div><div class="sd">${esc(c.d)}</div></div>${badge(c.state)}</div>`).join("")}`;
+  }
+
+  function vDocs() {
+    const rows = S.tenders.map(t => {
+      const e = evaluate(t);
+      const present = e.rows.filter(r => r.s === "PRESENT").length;
+      const pct = e.rows.length ? present / e.rows.length : 0;
+      const p = pendingFor(t.id).length;
+      return `<tr class="row-link" tabindex="0" data-a="open" data-id="${t.id}"><td><div class="tt"><div class="tile">${initials(t.dept || t.title)}</div><div><div class="strong">${esc(t.title)}</div><div class="muted sm">${esc(t.id)}</div></div></div></td><td><div class="row" style="flex-wrap:nowrap;gap:10px"><div class="bar"><i style="width:${pct * 100}%"></i></div><span class="sm muted">${present}/${e.rows.length}</span></div></td><td>${badge(e.pack.status)}</td><td>${p ? chip(p + " pending", "t-brand") : `<span class="sm muted">None</span>`}</td></tr>`;
+    }).join("");
+    return `<div class="page-h"><div><div class="eyebrow">Packs</div><h1 class="h1">Document center</h1><p class="sub">Document packs for every tender. Collection and ZIP builds always need your approval.</p></div>
+      <div class="row"><button class="btn" data-a="exp" data-k="checklist">${ic("doc", 15)} Export checklist CSV</button></div></div>
+      <section class="card">${S.tenders.length ? `<div class="tw"><table><thead><tr><th>Tender</th><th>Files present</th><th>Pack status</th><th>Approvals</th></tr></thead><tbody>${rows}</tbody></table></div>` : `<div class="empty"><div class="ei">${ic("folder", 22)}</div><b>No packs yet</b><span>Add a tender to start building its document pack.</span></div>`}</section>`;
+  }
+
+  function vApprovals() {
+    const pend = S.approvals.filter(a => a.status === "pending");
+    const hist = S.approvals.filter(a => a.status !== "pending");
+    const card = (a, pending) => {
+      const t = S.tenders.find(x => x.id === a.tid);
+      const tone = a.status === "approved" ? "t-ok" : a.status === "rejected" ? "t-bad" : "t-brand";
+      const label = a.status === "pending" ? "Pending" : a.status === "approved" ? "Approved" : "Rejected";
+      return `<div class="ap ${pending ? "" : "done"}"><div class="tile" style="border-radius:12px">${ic(a.type === "emd" ? "shield" : a.type === "zip" ? "folder" : "doc", 16)}</div><div class="body">
+        <div class="row" style="justify-content:space-between"><div class="strong">${esc(a.title)}</div>${chip(label, tone)}</div>
+        <div class="muted sm">${a.id} · ${esc(t ? t.title : a.tid)}</div>
+        <div class="sm" style="margin-top:6px">${esc(a.detail || "")}</div>
+        <dl class="apmeta"><dt>Destination</dt><dd>${esc(a.dest || "—")}</dd><dt>Expected</dt><dd>${esc(a.expect || "—")}</dd><dt>Risk</dt><dd>${esc(a.risk || "—")}</dd></dl>
+        ${pending ? `<div class="acts"><button class="btn ok sm" data-a="decide" data-id="${a.id}" data-ok="1">${ic("check", 13)} Approve</button><button class="btn bad sm" data-a="decide" data-id="${a.id}" data-ok="0">${ic("x", 13)} Reject</button></div>` : `<div class="sm muted" style="margin-top:6px">Decided ${dt(a.decidedAt)}</div>`}
+      </div></div>`;
+    };
+    return `<div class="page-h"><div><div class="eyebrow">Human control</div><h1 class="h1">Approval center</h1><p class="sub">Protected actions run only after you approve them here. Each request shows where it goes, what it changes and the risks.</p></div></div>
+      <section class="card card-b" style="margin-bottom:var(--s2)"><div class="card-h" style="padding:0 0 14px;border:0"><h2>Pending</h2>${chip(String(pend.length), "t-brand")}</div>${pend.length ? pend.map(a => card(a, true)).join("") : `<div class="empty"><div class="ei">${ic("check", 22)}</div><b>Nothing waiting</b><span>You are all caught up.</span></div>`}</section>
+      <section class="card card-b"><div class="card-h" style="padding:0 0 14px;border:0"><h2>History</h2></div>${hist.length ? hist.map(a => card(a, false)).join("") : `<div class="empty"><div class="ei">${ic("clock", 22)}</div><b>No decisions yet</b><span>Approved and rejected items are listed here.</span></div>`}</section>`;
+  }
+
+  function vActivity() {
+    const count = tone => S.log.filter(l => l.tone === tone).length;
+    const tone2label = { ok: ["Success", "t-ok"], info: ["Info", "t-brand"], warn: ["Review", "t-warn"], bad: ["Failed", "t-bad"] };
+    return `<div class="page-h"><div><div class="eyebrow">Audit</div><h1 class="h1">Agent activity</h1><p class="sub">Every step is logged with its execution ID, the source it used, the result and any failure reason.</p></div>
+      <div class="row"><button class="btn" data-a="exp" data-k="activity">${ic("doc", 15)} Export log CSV</button></div></div>
+      <div class="grid-kpi" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div class="card kpi"><div class="kpi-top"><span class="l">Successful steps</span><div class="kpi-ic" style="background:var(--ok-soft);color:var(--ok)">${ic("check", 18)}</div></div><div class="v">${count("ok")}</div></div>
+        <div class="card kpi"><div class="kpi-top"><span class="l">Needs review</span><div class="kpi-ic" style="background:var(--warn-soft);color:var(--warn)">${ic("alert", 18)}</div></div><div class="v">${count("warn")}</div></div>
+        <div class="card kpi"><div class="kpi-top"><span class="l">Failed or rejected</span><div class="kpi-ic" style="background:var(--bad-soft);color:var(--bad)">${ic("x", 18)}</div></div><div class="v">${count("bad")}</div></div>
+      </div>
+      <section class="card">
+        <div class="card-h"><h2>Execution log</h2><span class="sm muted">${S.log.length} event${S.log.length === 1 ? "" : "s"}</span></div>
+        ${S.log.length ? `<div class="tw"><table><thead><tr><th>ID</th><th>Time</th><th>Step</th><th>Event</th><th>Source</th><th>Result</th><th>Failure</th></tr></thead><tbody>${S.log.map(l => { const [lab, tn] = tone2label[l.tone] || ["Info", "t-brand"]; return `<tr><td class="sm muted">${l.id}</td><td class="sm muted" style="white-space:nowrap">${l.at.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</td><td class="sm strong">${esc(l.step)}</td><td class="sm">${esc(l.msg)}</td><td class="sm muted">${esc(l.source)}</td><td>${chip(lab, tn)}</td><td class="sm muted">${esc(l.failure || "—")}</td></tr>`; }).join("")}</tbody></table></div>` : `<div class="empty"><div class="ei">${ic("pulse", 22)}</div><b>No events yet</b><span>Run the agent or make a change to see the log.</span></div>`}
+      </section>
+      <section class="card card-b" style="margin-top:var(--s2)"><div class="card-h" style="padding:0 0 14px;border:0"><h2>Runs</h2></div>${S.runs.length ? `<ul class="list">${S.runs.map(r => `<li><div><div class="strong">${r.id}</div><div class="muted sm">${dt(r.at)}</div></div>${chip(r.count + " tender" + (r.count === 1 ? "" : "s"), "t-brand")}</li>`).join("")}</ul>` : `<div class="empty"><div class="ei">${ic("bolt", 22)}</div><b>No runs yet</b><span>Use Run agent to check your tenders.</span></div>`}</section>`;
+  }
+
+  const DEF_TEST_PROFILE = { category: "IT services", region: "Maharashtra", min: 100000, max: 5000000 };
+  const TC = [
+    { id: "TC1", name: "Matching tender", input: "IT tender in Maharashtra, value inside budget, all 3 required files present", expected: "Pack COMPLETE; eligibility MATCH",
+      t: mk({ id: "TC1", category: "IT services", region: "Maharashtra", value: 1200000, closing: "2027-01-15T15:00:00+05:30", notice: "Submit online.", required: ["Tender_Notice", "Technical_Specification", "Annexure_A"], files: ["Tender_Notice", "Technical_Specification", "Annexure_A"] }),
+      check: e => e.pack.status === "COMPLETE" && e.overall === "MATCH", actual: e => `Pack ${e.pack.status}; eligibility ${e.overall}` },
+    { id: "TC2", name: "Corrigendum changes closing time", input: "Original closing 25 Oct 5:00 PM and verified corrigendum to 28 Oct 3:00 PM", expected: "Deadline used: 28 Oct 3:00 PM",
+      t: mk({ id: "TC2", category: "IT services", region: "Maharashtra", value: 1200000, closing: "2026-10-25T17:00:00+05:30", notice: "Submit online.", corrigenda: [{ id: "C1", closing: "2026-10-28T15:00:00+05:30", source: "Official corrigendum 01", verified: true }] }),
+      check: e => !!e.deadline.latest && e.deadline.latest.toISOString() === new Date("2026-10-28T15:00:00+05:30").toISOString(), actual: e => `Deadline used ${dt(e.deadline.latest)}` },
+    { id: "TC3", name: "Missing annexure", input: "Required Annexure_B not in the file list", expected: "Pack INCOMPLETE; Annexure_B listed as missing",
+      t: mk({ id: "TC3", category: "IT services", region: "Maharashtra", value: 1200000, notice: "Submit online.", required: ["Tender_Notice", "Annexure_A", "Annexure_B"], files: ["Tender_Notice", "Annexure_A"] }),
+      check: e => e.pack.status === "INCOMPLETE" && e.rows.some(r => r.n === "Annexure_B" && r.s === "MISSING"), actual: e => `Pack ${e.pack.status}; missing ${e.rows.filter(r => r.s === "MISSING").map(r => r.n).join(", ") || "none"}` },
+    { id: "TC4", name: "EMD required", input: "Notice text states an EMD of Rs. 24,000", expected: "EMD YES, amount 24,000, approval needed, no payment",
+      t: mk({ id: "TC4", category: "IT services", region: "Maharashtra", value: 800000, notice: "The bidder shall pay an Earnest Money Deposit (EMD) of Rs. 24,000 along with the bid." }),
+      check: e => e.emd.status === "YES" && e.emd.amount === 24000, actual: e => `EMD ${e.emd.status}; amount ${money(e.emd.amount)}; approval required` }
+  ];
+
+  function vAnalyzer() {
+    const a = S.analysis;
+    return `<div class="page-h"><div><div class="eyebrow">AI workspace</div><h1 class="h1">Tender analyzer</h1><p class="sub">Paste tender notice text to extract likely deadline, EMD, eligibility clues and document requirements. This local preview is not a connected AI/API result.</p></div><span class="chip t-warn">LOCAL PREVIEW · NOT AI VERIFIED</span></div>
+      <div class="grid2">
+        <form id="analyzerForm" class="card card-b stack">
+          <div class="section-t">Tender notice input</div>
+          <label class="fl">Tender title<input class="inp" name="title" placeholder="e.g. IT support services tender" required /></label>
+          <label class="fl">Official source URL <input class="inp" name="source" type="url" placeholder="https://official-portal.gov.in/..." /></label>
+          <label class="fl">Paste notice / RFP text<textarea class="inp" name="notice" rows="10" required placeholder="Paste the notice text here. Include closing date, EMD, eligibility and annexures if available."></textarea></label>
+          <div class="row" style="justify-content:space-between"><span class="hint">Do not paste passwords, OTPs or confidential credentials.</span><button class="btn primary" type="submit">Analyze notice</button></div>
+        </form>
+        <section class="card card-b stack"><div class="section-t">Analysis results</div>
+          ${a ? `<div class="callout warn"><div class="ci">${ic("alert",15)}</div><div><b>Preliminary extraction only</b><div class="sm" style="margin-top:4px">Confirm each item against the official tender notice and latest corrigenda.</div></div></div>
+            <div class="metric"><span>Tender</span><b>${esc(a.title)}</b></div>
+            <div class="metric"><span>EMD clue</span><b>${esc(a.emd)}</b></div>
+            <div class="metric"><span>Deadline clue</span><b>${esc(a.deadline)}</b></div>
+            <div class="metric"><span>Experience / turnover clues</span><b>${esc(a.eligibility)}</b></div>
+            <div class="metric"><span>Document / annexure clues</span><b>${esc(a.docs)}</b></div>
+            <div class="metric"><span>Evidence source</span><b style="font-size:13px;word-break:break-all">${a.source ? `<a href="${esc(a.source)}" target="_blank" rel="noopener noreferrer">Open source</a>` : "No source URL supplied"}</b></div>
+            <button class="btn" data-a="analyzer-add">Create manual tender from analysis</button>` : `<div class="empty"><div class="ei">${ic("doc",22)}</div><b>No analysis yet</b><span>Paste a notice and select Analyze notice. Results will be marked preliminary until verified.</span></div>`}
+        </section>
+      </div>`;
+  }
+
+  function vCompare() {
+    const opts = S.tenders.map(t => `<option value="${esc(t.id)}">${esc(t.id)} — ${esc(t.title)}</option>`).join("");
+    return `<div class="page-h"><div><div class="eyebrow">Decision support</div><h1 class="h1">Tender comparison</h1><p class="sub">Compare two saved tenders side-by-side before deciding which deserves further review.</p></div></div>
+      ${S.tenders.length < 2 ? `<div class="callout info"><div class="ci">${ic("info",15)}</div><div>Add at least two tenders or load the synthetic demo to use comparison.</div></div>` : `<form id="compareForm" class="card card-b stack"><div class="form"><label class="fl">Tender A<select class="inp" name="a">${opts}</select></label><label class="fl">Tender B<select class="inp" name="b">${opts}</select></label></div><div class="row" style="justify-content:flex-end"><button class="btn primary" type="submit">Compare tenders</button></div></form>${S.compareHtml || `<div class="card card-b"><div class="empty"><b>Choose two tenders</b><span>Comparison will show deadline, value, eligibility, documents, EMD and source evidence.</span></div></div>`}`}`;
+  }
+
+  function vIntegrations() {
+    const rows = [
+      ["AI provider (Gemini)", "Not connected", "Server-side API endpoint required. Never put API keys in this HTML file."],
+      ["Database / login (Supabase)", "Not connected", "Project URL, publishable key, authentication and row-level security are required."],
+      ["Public tender sources", "Manual / demo only", "Add an approved public source connector and preserve source links and retrieval timestamps."],
+      ["Document processing", "Manual text input", "PDF extraction and annexure verification need backend processing and file validation."],
+      ["Notifications", "In-app preview", "External email/SMS reminders require a configured provider and user consent."]
+    ];
+    return `<div class="page-h"><div><div class="eyebrow">System status</div><h1 class="h1">Integrations & data sources</h1><p class="sub">Transparent status for the demo. This screen does not claim that an API or government portal is connected.</p></div><span class="chip t-warn">DEMO MODE</span></div>
+      <section class="card card-b"><div class="tw"><table><thead><tr><th>Integration</th><th>Status</th><th>Next step</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="strong">${r[0]}</td><td>${badge(r[1])}</td><td class="sm muted">${r[2]}</td></tr>`).join("")}</tbody></table></div></section>
+      <div class="grid2" style="margin-top:16px"><div class="card card-b"><div class="section-t">Security checklist</div><ul class="list"><li><span>Keep API keys on the server</span>${badge("Required")}</li><li><span>Use authentication and database RLS</span>${badge("Required")}</li><li><span>Do not bypass OTP or CAPTCHA</span>${badge("Policy")}</li><li><span>Require approval for protected actions</span>${badge("Enabled in demo")}</li></ul></div><div class="card card-b"><div class="section-t">Source verification rules</div><p class="sm muted">A tender deadline should not be treated as verified unless supported by the official source or a verified corrigendum. Missing annexures keep the pack incomplete. EMD is a review flag only; TenderPilot must never make payments.</p><button class="btn" data-a="go" data-v="tests">Open test case lab</button></div></div>`;
+  }
+
+  function vTests() {
+    const prof = S.profile || DEF_TEST_PROFILE;
+    const results = TC.map(c => ({ c, e: evaluate(c.t, prof) }));
+    const passed = results.filter(r => r.c.check(r.e)).length;
+    return `<div class="page-h"><div><div class="eyebrow">Validation</div><h1 class="h1">Test case lab</h1><p class="sub">Official TC1 to TC4 run on fixed fixtures. Your own tenders are not changed.</p></div>
+      <div class="row">${chip(passed + " of " + TC.length + " passed", passed === TC.length ? "t-ok" : "t-warn")}</div></div>
+      <section class="card">${results.map(({ c, e }) => { const ok = c.check(e); return `<div class="tc"><div class="code">${c.id}</div><div style="min-width:0"><div class="strong">${esc(c.name)}</div><div class="muted sm" style="margin-top:2px">${esc(c.input)}</div><div class="exp"><b style="font-weight:600;color:var(--ink)">Expected:</b> ${esc(c.expected)}</div><div class="act"><b style="font-weight:600;color:var(--ink2)">Actual:</b> ${esc(c.actual(e))}</div></div>${badge(ok ? "PASS" : "FAIL")}</div>`; }).join("")}</section>
+      <p class="sm muted" style="margin-top:12px">Fixtures are labelled SYNTHETIC and used only for testing.</p>`;
+  }
+
+  const TITLES = { analytics: ["Analytics"], dashboard: ["Overview"], profile: ["Business profile"], tenders: ["Tender explorer"], add: ["Tender explorer", "Add tender"], detail: ["Tender explorer", "Tender"], documents: ["Document center"], approvals: ["Approval center"], activity: ["Agent activity"], tests: ["Test case lab"], analyzer: ["Tender analyzer"], compare: ["Tender comparison"], integrations: ["Integrations & data sources"] };
+  const VIEWS = { analytics: vAnalytics, dashboard: vDashboard, profile: vProfile, tenders: vTenders, add: vAdd, detail: vDetail, documents: vDocs, approvals: vApprovals, activity: vActivity, tests: vTests, analyzer: vAnalyzer, compare: vCompare, integrations: vIntegrations };
+  const NAV = [
+    ["grp", "Workspace"], ["dashboard", "Overview", "dash"], ["profile", "Business profile", "user"], ["tenders", "Tender explorer", "search"], ["documents", "Document center", "folder"], ["approvals", "Approval center", "shield"],
+    ["grp", "AI tools"], ["analyzer", "Tender analyzer", "bolt"], ["compare", "Compare tenders", "chart"],
+    ["grp", "Operations"], ["analytics", "Analytics", "chart"], ["activity", "Agent activity", "pulse"], ["tests", "Test case lab", "flask"], ["integrations", "Integrations", "shield"]
+  ];
+
+  function renderNav() {
+    const active = S.view === "detail" || S.view === "add" ? "tenders" : S.view;
+    const pending = S.approvals.filter(a => a.status === "pending").length;
+    $("#nav").innerHTML = NAV.map(n => n[0] === "grp" ? `<div class="grp">${n[1]}</div>` :
+      `<button class="nv" data-a="go" data-v="${n[0]}" ${active === n[0] ? 'aria-current="page"' : ""}>${ic(n[2], 16)}<span>${n[1]}</span>${n[0] === "approvals" && pending ? `<span class="n">${pending}</span>` : ""}</button>`).join("");
+    const p = S.profile;
+    $("#sideCard").innerHTML = `<div class="avatar">${initials(p ? p.company : "TP")}</div><div style="min-width:0"><b>${esc(p ? p.company : "Set up profile")}</b><span>${p ? esc(p.region + " · " + p.category) : "Add your business details"}</span></div>`;
+  }
+
+  function render() {
+    S.notifOpen = false;
+    renderNav();
+    const t = TITLES[S.view] || ["TenderPilot AI"];
+    $("#crumb").innerHTML = t.length > 1 ? `${esc(t[0])} <span>/</span> <b>${esc(t[1])}</b>` : `<b>${esc(t[0])}</b>`;
+    $("#main").innerHTML = VIEWS[S.view]();
+    $("#themeBtn").innerHTML = ic(S.dark ? "sun" : "moon") + (S.dark ? "Light" : "Dark");
+    renderBell();
+    renderTbl();
+  }
+
+  const actions = {
+    go: el => { S.view = el.dataset.v; if (S.view === "tenders") S.tab = "overview"; render(); window.scrollTo(0, 0); },
+    open: el => { S.cur = el.dataset.id; S.tab = "overview"; S.view = "detail"; render(); window.scrollTo(0, 0); },
+    tab: el => { S.tab = el.dataset.v; render(); },
+    setf: el => { S.f[el.dataset.k] = el.dataset.v; render(); },
+    theme: () => { S.dark = !S.dark; document.documentElement.dataset.theme = S.dark ? "dark" : "light"; render(); },
+    run: () => runAgent(),
+    demo: () => loadDemo(),
+    "analyzer-add": () => {
+      if (!S.analysis) return;
+      const a = S.analysis;
+      const t = mk({ id: "TN-" + String(S.seq++).padStart(3, "0"), title: a.title, sourceUrl: a.source, notice: "Preliminary analyzer input. Verify all extracted fields against the official notice.", origin: "manual", required: [] });
+      S.tenders.push(t); S.cur = t.id; S.tab = "overview"; S.view = "detail";
+      logIt(`Created manual tender record from analyzer: ${t.id}`, "warn", { step: "Analyzer", source: a.source || "Pasted notice", failure: "Extracted fields require manual verification" });
+      toast("Manual tender record created; verify details"); render();
+    },
+    notif: () => { S.notifOpen = !S.notifOpen; renderBell(); },
+    "enable-alerts": () => enableAlerts(),
+    propose: el => {
+      const t = S.tenders.find(x => x.id === el.dataset.id);
+      if (propose(t, el.dataset.v)) { logIt(`Proposed ${el.dataset.v} action for ${t.id}. Waiting for approval.`, "info", { step: "Proposal", source: "Your request" }); toast("Sent to approval center"); }
+      else toast("Already pending or approved");
+      render();
+    },
+    decide: el => decide(el.dataset.id, el.dataset.ok === "1"),
+    exp: el => {
+      const k = el.dataset.k;
+      if (k === "tenders") exportTendersCsv();
+      else if (k === "checklist") exportChecklistCsv();
+      else if (k === "activity") exportActivityCsv();
+      else if (k === "pack") exportPackReport(S.tenders.find(x => x.id === el.dataset.id));
+    },
+    del: el => {
+      const t = S.tenders.find(x => x.id === el.dataset.id);
+      S.tenders = S.tenders.filter(x => x.id !== el.dataset.id);
+      S.approvals = S.approvals.filter(a => a.tid !== el.dataset.id);
+      logIt(`Deleted tender ${t.id}`, "warn", { step: "Edit", source: "Your action" });
+      S.view = "tenders"; render(); toast("Tender deleted");
+    }
+  };
+
+  const forms = {
+    profileForm: f => {
+      const d = new FormData(f);
+      const p = { company: String(d.get("company")).trim(), category: d.get("category"), region: String(d.get("region")).trim(), min: Number(d.get("min")), max: Number(d.get("max")), turnover: d.get("turnover") === "" ? null : Number(d.get("turnover")), experience: d.get("experience") === "" ? null : Number(d.get("experience")), msme: d.get("msme") || "unknown" };
+      if (!p.company || !p.category || !p.region) { toast("Fill in all fields"); return; }
+      if (p.min > p.max) { toast("Minimum budget cannot be above maximum"); return; }
+      S.profile = p;
+      logIt(`Profile saved: ${p.company}, ${p.category}, ${p.region}, ${money(p.min)} to ${money(p.max)}`, "ok", { step: "Setup", source: "Your input" });
+      toast("Profile saved"); S.view = "dashboard"; render();
+    },
+    tenderForm: f => {
+      const d = new FormData(f);
+      const t = mk({
+        id: "TN-" + String(S.seq++).padStart(3, "0"),
+        title: String(d.get("title")).trim(), dept: String(d.get("dept") || "").trim(), category: d.get("category") || "", region: String(d.get("region") || "").trim(),
+        value: d.get("value") === "" ? null : Number(d.get("value")),
+        closing: d.get("closing") ? new Date(d.get("closing")).toISOString() : null,
+        sourceUrl: String(d.get("sourceUrl") || "").trim(), notice: String(d.get("notice") || ""),
+        required: lines(d.get("required")), files: lines(d.get("files")), sourceAvailable: lines(d.get("available"))
+      });
+      if (!t.title) { toast("Enter the tender title"); return; }
+      S.tenders.push(t); S.cur = t.id; S.tab = "overview"; S.view = "detail";
+      logIt(`Added ${t.id}: ${t.title} (manual entry)`, "info", { step: "Discovery", source: t.sourceUrl || "Entered manually" });
+      toast("Tender added"); render();
+    },
+    corrForm: f => {
+      const t = S.tenders.find(x => x.id === f.dataset.tid);
+      const d = new FormData(f);
+      if (!d.get("closing")) { toast("Enter the new closing date"); return; }
+      const v = d.get("verified") === "on";
+      t.corrigenda.push({ id: "C" + (t.corrigenda.length + 1), closing: new Date(d.get("closing")).toISOString(), source: String(d.get("source") || "").trim(), verified: v });
+      logIt(`Corrigendum recorded for ${t.id} (${v ? "verified" : "unverified"})`, v ? "ok" : "warn", { step: "Corrigendum", source: String(d.get("source") || "Manual entry"), failure: v ? "" : "Not confirmed on official portal" });
+      toast("Corrigendum saved"); render();
+    },
+    filesForm: f => {
+      const t = S.tenders.find(x => x.id === f.dataset.tid);
+      t.files = lines(new FormData(f).get("files"));
+      logIt(`File list updated for ${t.id}`, "info", { step: "Documents", source: "Your input" });
+      toast("File list saved"); render();
+    },
+    analyzerForm: f => {
+      const d = new FormData(f), text = String(d.get("notice") || ""), low = text.toLowerCase();
+      const emdMatch = text.match(/(?:emd|earnest money deposit)[^\n.]{0,90}/i);
+      const deadlineMatch = text.match(/(?:closing date|last date|submission deadline|bid submission|due date)[^\n.]{0,100}/i);
+      const elig = [/([0-9]+)\s*(?:years?|yrs?)\s+(?:of\s+)?(?:similar|relevant|work)?\s*experience/i.exec(text), /turnover[^\n.]{0,100}/i.exec(text)].filter(Boolean).map(m=>m[0]).join("; ");
+      const docs = lines(text.split(/\r?\n/).filter(line => /annexure|appendix|boq|technical bid|financial bid|eligibility certificate|undertaking|document/i.test(line)).join("\n")).slice(0,8).join("; ");
+      S.analysis = { title: String(d.get("title") || "Untitled tender"), source: String(d.get("source") || ""), emd: emdMatch ? emdMatch[0].trim() : (low.includes("emd") || low.includes("earnest money") ? "EMD mentioned; amount needs review" : "Not found in pasted text"), deadline: deadlineMatch ? deadlineMatch[0].trim() : "Not found in pasted text — verify official portal", eligibility: elig || "No clear experience/turnover clue detected", docs: docs || "No clear document/annexure lines detected" };
+      logIt(`Ran local preliminary text extraction: ${S.analysis.title}`, "warn", { step: "Analyzer", source: S.analysis.source || "Pasted text", failure: "Local heuristic preview; not an AI or official verification" });
+      toast("Preliminary extraction ready"); render();
+    },
+    compareForm: f => {
+      const d = new FormData(f), a = S.tenders.find(t=>t.id===d.get("a")), b = S.tenders.find(t=>t.id===d.get("b"));
+      if (!a || !b || a.id === b.id) { toast("Choose two different tenders"); return; }
+      const rows = [["Closing deadline", a.closing ? dt(a.closing) : "UNVERIFIED", b.closing ? dt(b.closing) : "UNVERIFIED"], ["Estimated value", money(a.value), money(b.value)], ["Category", a.category || "Not stated", b.category || "Not stated"], ["Region", a.region || "Not stated", b.region || "Not stated"], ["Eligibility", evaluate(a).overall, evaluate(b).overall], ["Document pack", evaluate(a).pack.status, evaluate(b).pack.status], ["Required docs", String(a.required.length), String(b.required.length)], ["EMD", evaluate(a).emd.status + (evaluate(a).emd.amount ? " · " + money(evaluate(a).emd.amount) : ""), evaluate(b).emd.status + (evaluate(b).emd.amount ? " · " + money(evaluate(b).emd.amount) : "")], ["Source evidence", a.sourceUrl ? `<a href="${esc(a.sourceUrl)}" target="_blank" rel="noopener noreferrer">Open source</a>` : "Not supplied", b.sourceUrl ? `<a href="${esc(b.sourceUrl)}" target="_blank" rel="noopener noreferrer">Open source</a>` : "Not supplied"]];
+      S.compareHtml = `<section class="card" style="margin-top:16px"><div class="tw"><table><thead><tr><th>Field</th><th>${esc(a.title)}</th><th>${esc(b.title)}</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="strong">${r[0]}</td><td>${r[0]==="Source evidence"?r[1]:esc(r[1])}</td><td>${r[0]==="Source evidence"?r[2]:esc(r[2])}</td></tr>`).join("")}</tbody></table></div></section>`;
+      logIt(`Compared tenders ${a.id} and ${b.id}`, "info", { step: "Comparison", source: "Saved tender records" });
+      render();
+    }
+  };
+
+  document.addEventListener("click", e => {
+    const el = e.target.closest("[data-a]");
+    if (!el) return;
+    const fn = actions[el.dataset.a];
+    if (fn) { e.stopPropagation(); fn(el); }
+  });
+  document.addEventListener("keydown", e => {
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches("tr[data-a]")) { e.preventDefault(); e.target.click(); }
+  });
+  document.addEventListener("submit", e => {
+    e.preventDefault();
+    const h = forms[e.target.id];
+    if (h) h(e.target);
+  });
+  document.addEventListener("input", e => {
+    if (e.target.dataset.f === "q") { S.f.q = e.target.value; renderTbl(); }
+  });
+  document.addEventListener("change", e => {
+    const k = e.target.dataset.f;
+    if (k && k !== "q") { S.f[k] = e.target.value; renderTbl(); }
+  });
+
+  if (window.claude && typeof window.claude.use === "function") {
+    window.claude.use("downloads").then(v => { DL = v || null; render(); }).catch(() => {});
+  }
+  render();
+  boot();
+  setInterval(checkAlerts, 60000);
+  checkAlerts();
+</script>
+</body>
+</html>
