@@ -275,7 +275,6 @@
     .tc { grid-template-columns: auto 1fr; }
     .tc > :last-child { grid-column: 1 / -1; }
   }
-  /* ---- Notifications and analytics ---- */
   .bell { position: relative; }
   .bdot { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--bad); color: #fff; font-size: 10.5px; font-weight: 700; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--bg); }
   #notifHost { position: fixed; top: 72px; right: 24px; z-index: 25; }
@@ -317,6 +316,11 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
+  /* ---- Supabase (publishable key only; service key must never be here) ---- */
+  const SUPABASE_URL = "https://aarvuejthwxcdzkooelw.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_BGzFb-yuLfglbebuQtBcnw_Xv9KKFfV";
+  const WORKSPACE_ID = "main";
+
   const $ = s => document.querySelector(s);
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const money = n => n == null ? "—" : "₹" + Number(n).toLocaleString("en-IN");
@@ -353,7 +357,8 @@
     bolt: '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
     verify: '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>',
     chart: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
-    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>'
+    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>'
   };
   const ic = (n, s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
 
@@ -375,12 +380,33 @@
     view: "dashboard", cur: null, tab: "overview",
     profile: null, feed: [], tenders: [], approvals: [], log: [], runs: [], seq: 1, history: [], notifOpen: false, analysis: null,
     f: { q: "", status: "all", cat: "all" },
-    dark: matchMedia("(prefers-color-scheme: dark)").matches
+    dark: matchMedia("(prefers-color-scheme: dark)").matches,
+    sync: "loading"
   };
-  const STORE = { ready: false, t: null };
-  const STORAGE_KEY = "tenderpilot_v1";
+  const STORE = { ready: false, t: null, lastSaved: "" };
   let DL = null;
   document.documentElement.dataset.theme = S.dark ? "dark" : "light";
+
+  /* ---- Supabase REST helpers (no SDK needed) ---- */
+  const SB = {
+    headers() {
+      return { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" };
+    },
+    async load() {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/workspace?id=eq.${WORKSPACE_ID}&select=data`, { headers: this.headers() });
+      if (!res.ok) throw new Error("Load failed: HTTP " + res.status);
+      const rows = await res.json();
+      return rows[0] ? rows[0].data : null;
+    },
+    async save(data) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/workspace?on_conflict=id`, {
+        method: "POST",
+        headers: { ...this.headers(), Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify([{ id: WORKSPACE_ID, data, updated_at: new Date().toISOString() }])
+      });
+      if (!res.ok) throw new Error("Save failed: HTTP " + res.status);
+    }
+  };
 
   function mk(o) {
     return Object.assign({ id: "", title: "", dept: "", category: "", region: "", value: null, closing: null, notice: "", sourceUrl: "", origin: "manual", retrieved: new Date(), required: [], files: [], sourceAvailable: [], flaky: [], corrigenda: [], collected: [], failed: [], attempted: [] }, o);
@@ -448,7 +474,7 @@
   let tt;
   function toast(m) {
     const el = $("#toast"); el.textContent = m; el.classList.add("show");
-    clearTimeout(tt); tt = setTimeout(() => el.classList.remove("show"), 2200);
+    clearTimeout(tt); tt = setTimeout(() => el.classList.remove("show"), 2400);
   }
 
   function pendingFor(id) { return S.approvals.filter(a => a.tid === id && a.status === "pending"); }
@@ -673,7 +699,7 @@
     if (host) host.innerHTML = S.notifOpen ? notifPanel(items) : "";
   }
 
-  /* ---- Saving and loading (browser localStorage, this browser only) ---- */
+  /* ---- Saving and loading (Supabase, one workspace row) ---- */
   function snapshotState() {
     return JSON.parse(JSON.stringify({ feed: S.feed, profile: S.profile, tenders: S.tenders, approvals: S.approvals, log: S.log.slice(0, 300), runs: S.runs, seq: S.seq, history: S.history.slice(-200) }));
   }
@@ -688,23 +714,48 @@
     S.seq = d.seq || S.seq;
     S.history = (d.history || []).slice(-200);
   }
+  function setSync(state, text) {
+    S.sync = state;
+    const el = $("#syncBadge");
+    if (el) el.innerHTML = chip(text, state === "ok" ? "t-ok" : state === "error" ? "t-bad" : state === "saving" ? "t-info" : "t-muted");
+  }
   function persist() {
     if (!STORE.ready) return;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshotState())); }
-    catch (err) { console.warn("Could not save to this browser", err); toast("Could not save changes in this browser"); }
+    clearTimeout(STORE.t);
+    setSync("saving", "Saving…");
+    STORE.t = setTimeout(async () => {
+      try {
+        const data = snapshotState();
+        const json = JSON.stringify(data);
+        if (json === STORE.lastSaved) { setSync("ok", "Saved"); return; }
+        await SB.save(data);
+        STORE.lastSaved = json;
+        setSync("ok", "Saved");
+      } catch (err) {
+        console.error(err);
+        setSync("error", "Not saved");
+        toast("Could not save to Supabase. Check your connection.");
+      }
+    }, 600);
   }
   async function boot() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) restore(JSON.parse(raw));
-    } catch (err) { console.warn("Could not load saved data", err); }
+      const d = await SB.load();
+      if (d) { restore(d); STORE.lastSaved = JSON.stringify(d); }
+      setSync("ok", "Synced");
+    } catch (err) {
+      console.error(err);
+      const raw = localStorage.getItem("tenderpilot_v1");
+      if (raw) { try { restore(JSON.parse(raw)); } catch (e) {} }
+      setSync("error", "Offline");
+      toast("Supabase not reachable. Using this browser's copy.");
+    }
     STORE.ready = true;
     render();
   }
 
   /* ---- Export and ZIP (downloads capability) ---- */
   async function saveFile(filename, data) {
-    // Prefer the host download API when available; otherwise use a browser-native download.
     try {
       if (DL && typeof DL.save === "function") {
         await DL.save({ filename, data });
@@ -900,6 +951,7 @@
           <label class="fl">Annual turnover (₹)<input class="inp" name="turnover" type="number" min="0" value="${p.turnover ?? ""}" placeholder="e.g. 5000000" /></label>
           <label class="fl">Similar-work experience (years)<input class="inp" name="experience" type="number" min="0" step="1" value="${p.experience ?? ""}" placeholder="e.g. 3" /></label>
           <label class="fl">MSME / Udyam status<select class="inp" name="msme"><option value="unknown" ${(p.msme || "unknown") === "unknown" ? "selected" : ""}>Not specified</option><option value="yes" ${p.msme === "yes" ? "selected" : ""}>Registered</option><option value="no" ${p.msme === "no" ? "selected" : ""}>Not registered</option></select></label>
+          <label class="fl full">Reminder email (deadline alerts will be sent here later)<input class="inp" name="email" type="email" value="${esc(p.email || "")}" placeholder="you@example.com" /></label>
           <div class="section-t full">Budget range</div>
           <label class="fl">Minimum (₹)<input class="inp" name="min" type="number" min="0" step="1000" required value="${p.min ?? ""}" /></label>
           <label class="fl">Maximum (₹)<input class="inp" name="max" type="number" min="0" step="1000" required value="${p.max ?? ""}" /></label>
@@ -910,7 +962,7 @@
           <h2 style="font-size:15px;font-weight:650">How your profile is used</h2>
           <ul class="list" style="margin-top:4px">
             <li><span class="sm muted">Category, region and budget decide whether a tender is a potential match.</span></li>
-            <li><span class="sm muted">Your data is private to your account. Other people cannot see it.</span></li>
+            <li><span class="sm muted">Your data is saved to your workspace in Supabase, so it appears on every device.</span></li>
             <li><span class="sm muted">A match is a guide, not an official eligibility decision.</span></li>
           </ul>
         </aside>
@@ -1280,7 +1332,7 @@
 
   function vAnalyzer() {
     const a = S.analysis;
-    return `<div class="page-h"><div><div class="eyebrow">AI workspace</div><h1 class="h1">Tender analyzer</h1><p class="sub">Paste tender notice text to extract likely deadline, EMD, eligibility clues and document requirements. This local preview is not a connected AI/API result.</p></div><span class="chip t-warn">LOCAL PREVIEW · NOT AI VERIFIED</span></div>
+    return `<div class="page-h"><div><div class="eyebrow">AI workspace</div><h1 class="h1">Tender analyzer</h1><p class="sub">Paste tender notice text to extract likely deadline, EMD, eligibility clues and document requirements. This preview is not a verified result.</p></div><span class="chip t-warn">PREVIEW · NOT AI VERIFIED</span></div>
       <div class="grid2">
         <form id="analyzerForm" class="card card-b stack">
           <div class="section-t">Tender notice input</div>
@@ -1310,11 +1362,11 @@
 
   function vIntegrations() {
     const rows = [
+      ["Database (Supabase)", "Connected", "Profile, tenders, approvals and feed are saved to one workspace row. Login per user is the next step."],
       ["AI provider (Gemini)", "Not connected", "Server-side API endpoint required. Never put API keys in this HTML file."],
-      ["Database / login (Supabase)", "Not connected", "Project URL, publishable key, authentication and row-level security are required."],
       ["Public tender sources", "Manual / demo only", "Add an approved public source connector and preserve source links and retrieval timestamps."],
       ["Document processing", "Manual text input", "PDF extraction and annexure verification need backend processing and file validation."],
-      ["Notifications", "In-app preview", "External email/SMS reminders require a configured provider and user consent."]
+      ["Email reminders (Resend)", "Not connected", "Requires a backend endpoint and a RESEND_API_KEY set in Render environment variables."]
     ];
     return `<div class="page-h"><div><div class="eyebrow">System status</div><h1 class="h1">Integrations & data sources</h1><p class="sub">Transparent status for the demo. This screen does not claim that an API or government portal is connected.</p></div><span class="chip t-warn">DEMO MODE</span></div>
       <section class="card card-b"><div class="tw"><table><thead><tr><th>Integration</th><th>Status</th><th>Next step</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="strong">${r[0]}</td><td>${badge(r[1])}</td><td class="sm muted">${r[2]}</td></tr>`).join("")}</tbody></table></div></section>
@@ -1345,7 +1397,8 @@
     $("#nav").innerHTML = NAV.map(n => n[0] === "grp" ? `<div class="grp">${n[1]}</div>` :
       `<button class="nv" data-a="go" data-v="${n[0]}" ${active === n[0] ? 'aria-current="page"' : ""}>${ic(n[2], 16)}<span>${n[1]}</span>${n[0] === "approvals" && pending ? `<span class="n">${pending}</span>` : ""}</button>`).join("");
     const p = S.profile;
-    $("#sideCard").innerHTML = `<div class="avatar">${initials(p ? p.company : "TP")}</div><div style="min-width:0"><b>${esc(p ? p.company : "Set up profile")}</b><span>${p ? esc(p.region + " · " + p.category) : "Add your business details"}</span></div>`;
+    $("#sideCard").innerHTML = `<div class="avatar">${initials(p ? p.company : "TP")}</div><div style="min-width:0"><b>${esc(p ? p.company : "Set up profile")}</b><span>${p ? esc(p.region + " · " + p.category) : "Add your business details"}</span><div id="syncBadge" style="margin-top:6px"></div></div>`;
+    setSync(S.sync, S.sync === "ok" ? "Synced" : S.sync === "error" ? "Offline" : S.sync === "saving" ? "Saving…" : "Loading…");
   }
 
   function render() {
@@ -1440,7 +1493,7 @@
     },
     profileForm: f => {
       const d = new FormData(f);
-      const p = { company: String(d.get("company")).trim(), category: d.get("category"), region: String(d.get("region")).trim(), min: Number(d.get("min")), max: Number(d.get("max")), turnover: d.get("turnover") === "" ? null : Number(d.get("turnover")), experience: d.get("experience") === "" ? null : Number(d.get("experience")), msme: d.get("msme") || "unknown" };
+      const p = { company: String(d.get("company")).trim(), category: d.get("category"), region: String(d.get("region")).trim(), min: Number(d.get("min")), max: Number(d.get("max")), turnover: d.get("turnover") === "" ? null : Number(d.get("turnover")), experience: d.get("experience") === "" ? null : Number(d.get("experience")), msme: d.get("msme") || "unknown", email: String(d.get("email") || "").trim() };
       if (!p.company || !p.category || !p.region) { toast("Fill in all fields"); return; }
       if (p.min > p.max) { toast("Minimum budget cannot be above maximum"); return; }
       S.profile = p;
