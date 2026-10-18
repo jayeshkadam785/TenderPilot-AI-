@@ -1361,15 +1361,39 @@
       logIt(`File list updated for ${t.id}`, "info", { step: "Documents", source: "Your input" });
       toast("File list saved"); render();
     },
-    analyzerForm: f => {
-      const d = new FormData(f), text = String(d.get("notice") || ""), low = text.toLowerCase();
-      const emdMatch = text.match(/(?:emd|earnest money deposit)[^\n.]{0,90}/i);
-      const deadlineMatch = text.match(/(?:closing date|last date|submission deadline|bid submission|due date)[^\n.]{0,100}/i);
-      const elig = [/([0-9]+)\s*(?:years?|yrs?)\s+(?:of\s+)?(?:similar|relevant|work)?\s*experience/i.exec(text), /turnover[^\n.]{0,100}/i.exec(text)].filter(Boolean).map(m=>m[0]).join("; ");
-      const docs = lines(text.split(/\r?\n/).filter(line => /annexure|appendix|boq|technical bid|financial bid|eligibility certificate|undertaking|document/i.test(line)).join("\n")).slice(0,8).join("; ");
-      S.analysis = { title: String(d.get("title") || "Untitled tender"), source: String(d.get("source") || ""), emd: emdMatch ? emdMatch[0].trim() : (low.includes("emd") || low.includes("earnest money") ? "EMD mentioned; amount needs review" : "Not found in pasted text"), deadline: deadlineMatch ? deadlineMatch[0].trim() : "Not found in pasted text — verify official portal", eligibility: elig || "No clear experience/turnover clue detected", docs: docs || "No clear document/annexure lines detected" };
-      logIt(`Ran local preliminary text extraction: ${S.analysis.title}`, "warn", { step: "Analyzer", source: S.analysis.source || "Pasted text", failure: "Local heuristic preview; not an AI or official verification" });
-      toast("Preliminary extraction ready"); render();
+    analyzerForm: async f => {
+      const d = new FormData(f);
+      const body = {
+        title: String(d.get("title") || "Untitled tender"),
+        notice_text: String(d.get("notice") || ""),
+        source_url: String(d.get("source") || "") || null
+      };
+      toast("Analyzing on backend...");
+      try {
+        const res = await fetch("https://tenderpilot-ai-jqcm.onrender.com/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        const get = field => (data.findings.find(x => x.field === field) || {}).value || "Not found";
+        S.analysis = {
+          title: data.title,
+          source: data.source_url || "",
+          emd: get("possible_emd"),
+          deadline: get("possible_deadline"),
+          eligibility: ["turnover", "experience"].map(k => `${k}: ${get(k)}`).join("; "),
+          docs: ["documents", "corrigendum"].map(k => `${k}: ${get(k)}`).join("; ")
+        };
+        logIt(`Backend analysis done: ${data.title} (${data.analysis_mode})`, "warn",
+          { step: "Analyzer", source: "Render backend /api/analyze", failure: "Rule-based preview; not verified" });
+        toast("Backend analysis ready");
+        render();
+      } catch (err) {
+        console.error(err);
+        toast("Backend not reachable. Check Render status or CORS.");
+      }
     },
     compareForm: f => {
       const d = new FormData(f), a = S.tenders.find(t=>t.id===d.get("a")), b = S.tenders.find(t=>t.id===d.get("b"));
