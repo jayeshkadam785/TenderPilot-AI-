@@ -426,8 +426,8 @@
     const emdHit = txt.match(/\b(EMD|earnest money)\b/i);
     const amt = txt.match(/(?:EMD|earnest money)[^\d₹]{0,60}(?:₹|Rs\.?)\s*([\d,]+)/i);
     const emd = { status: !txt ? "UNKNOWN" : emdHit ? "YES" : "NO", amount: amt ? Number(amt[1].replace(/,/g, "")) : null, excerpt: emdHit ? txt.slice(Math.max(0, emdHit.index - 60), emdHit.index + 150) : "" };
-
-    return { items, overall, filterStatus, deadline: { latest, original, state, expired, unverified: isUnverified }, rows, pack, emd };
+   return { items, overall, filterStatus, deadline: { latest, original, state, expired, unverified: isUnverified }, rows, pack: { status: pack }, emd };
+   
   }
 
   function evidenceLevel(t) {
