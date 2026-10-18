@@ -377,7 +377,8 @@
     f: { q: "", status: "all", cat: "all" },
     dark: matchMedia("(prefers-color-scheme: dark)").matches
   };
-  const STORE = { doc: null, ready: false, t: null };
+  const STORE = { ready: false, t: null };
+  const STORAGE_KEY = "tenderpilot_v1";
   let DL = null;
   document.documentElement.dataset.theme = S.dark ? "dark" : "light";
 
@@ -426,8 +427,8 @@
     const emdHit = txt.match(/\b(EMD|earnest money)\b/i);
     const amt = txt.match(/(?:EMD|earnest money)[^\d₹]{0,60}(?:₹|Rs\.?)\s*([\d,]+)/i);
     const emd = { status: !txt ? "UNKNOWN" : emdHit ? "YES" : "NO", amount: amt ? Number(amt[1].replace(/,/g, "")) : null, excerpt: emdHit ? txt.slice(Math.max(0, emdHit.index - 60), emdHit.index + 150) : "" };
-   return { items, overall, filterStatus, deadline: { latest, original, state, expired, unverified: isUnverified }, rows, pack: { status: pack }, emd };
-   
+
+    return { items, overall, filterStatus, deadline: { latest, original, state, expired, unverified: isUnverified }, rows, pack: { status: pack }, emd };
   }
 
   function evidenceLevel(t) {
@@ -672,7 +673,7 @@
     if (host) host.innerHTML = S.notifOpen ? notifPanel(items) : "";
   }
 
-  /* ---- Saving and loading (db capability, private per viewer) ---- */
+  /* ---- Saving and loading (browser localStorage, this browser only) ---- */
   function snapshotState() {
     return JSON.parse(JSON.stringify({ profile: S.profile, tenders: S.tenders, approvals: S.approvals, log: S.log.slice(0, 300), runs: S.runs, seq: S.seq, history: S.history.slice(-200) }));
   }
@@ -687,23 +688,15 @@
     S.history = (d.history || []).slice(-200);
   }
   function persist() {
-    if (!STORE.ready || !STORE.doc) return;
-    clearTimeout(STORE.t);
-    STORE.t = setTimeout(() => { STORE.doc.set(snapshotState()).catch(() => toast("Could not save changes")); }, 500);
+    if (!STORE.ready) return;
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshotState())); }
+    catch (err) { console.warn("Could not save to this browser", err); toast("Could not save changes in this browser"); }
   }
   async function boot() {
     try {
-      const C = window.claude;
-      if (C && typeof C.use === "function") {
-        const [db, user] = await Promise.all([C.use("db"), C.use("user")]);
-        const uid = db && user ? await user.id() : null;
-        if (db && uid) {
-          STORE.doc = db.doc("data/users/" + uid + "/workspace");
-          const snap = await STORE.doc.get();
-          if (snap.exists) restore(snap.data() || {});
-        }
-      }
-    } catch (err) { console.warn("Saving is unavailable in this view", err); }
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) restore(JSON.parse(raw));
+    } catch (err) { console.warn("Could not load saved data", err); }
     STORE.ready = true;
     render();
   }
