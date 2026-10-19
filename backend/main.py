@@ -614,4 +614,3 @@ def analyze_notice(request: AnalyzeRequest):
                 "Fallback uses text-pattern matching only, not Gemini AI.",
             ],
         }
-```
