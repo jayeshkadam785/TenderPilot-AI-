@@ -1539,7 +1539,7 @@
       };
       toast("Analyzing on backend...");
       try {
-        const res = await fetch("https://tenderpilot-ai-jqcm.onrender.com/api/analyze", {
+        const res = await fetch("https://tender-pilot-ai-backend.vercel.app/api/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body)
