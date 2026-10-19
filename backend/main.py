@@ -1,3 +1,4 @@
+```python
 """TenderPilot AI: Gemini-assisted tender analysis API with safe fallback."""
 
 from datetime import datetime, timezone
@@ -21,11 +22,10 @@ GEMINI_TIMEOUT_SECONDS = 25
 
 RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
 
-
 app = FastAPI(
     title="TenderPilot AI API",
     description="Tender analysis with Gemini support and rule-based fallback.",
-    version="0.4.0",
+    version="0.5.0",
 )
 
 app.add_middleware(
@@ -52,28 +52,20 @@ class AnalyzeRequest(BaseModel):
 
 def _get_model() -> str:
     """Return the configured Gemini model name."""
-
-    return (
-        os.getenv("GEMINI_MODEL", "").strip()
-        or DEFAULT_GEMINI_MODEL
-    )
+    return os.getenv("GEMINI_MODEL", "").strip() or DEFAULT_GEMINI_MODEL
 
 
 def _find(text: str, patterns: list[str]):
     """Return the first matching regular expression."""
-
     for pattern in patterns:
         match = re.search(pattern, text, re.IGNORECASE)
-
         if match:
             return match
-
     return None
 
 
 def _find_all(text: str, pattern: str, limit: int = 8) -> list[str]:
     """Extract distinct matching text fragments."""
-
     matches = re.findall(pattern, text, re.IGNORECASE)
 
     if isinstance(matches, str):
@@ -103,9 +95,7 @@ def extract_findings(text: str) -> list[dict]:
 
     findings = []
 
-    # ---------------------------------------------------------
     # 1. DEADLINE EXTRACTION
-    # ---------------------------------------------------------
 
     deadline = _find(
         text,
@@ -134,31 +124,30 @@ def extract_findings(text: str) -> list[dict]:
         ),
     })
 
-    # ---------------------------------------------------------
     # 2. EMD EXTRACTION
-    # ---------------------------------------------------------
 
     currency = r"(?:₹\s*|INR\s*|Rs\.?\s*)"
+    number = r"\d[\d,]*(?:\.\d{1,2})?"
+    magnitude = r"(?:\s*(?:lakh|lakhs|lac|lacs|crore|crores))?"
 
     amount = (
-        r"("
-        + currency
-        + r"[\d,]+(?:\.\d{1,2})?"
-        + r"(?:\s*(?:lakh|lakhs|crore|crores))?"
+        r"(?:"
+        + currency + number + magnitude
         + r"|"
-        + r"[\d,]+(?:\.\d{1,2})?"
-        + r"\s*(?:lakh|lakhs|crore|crores)"
+        + number + r"\s*(?:lakh|lakhs|lac|lacs|crore|crores)"
+        + r"|"
+        + currency + number
         + r")"
     )
 
     emd_patterns = [
-        r"(?:EMD|earnest money deposit|bid security)"
-        r"[^\n\r]{0,100}?"
-        + amount,
+        r"\b(?:EMD|earnest money deposit|bid security)\b"
+        r"[^\n\r]{0,100}?\b(?:is|of|:|=)?\s*"
+        r"(" + amount + r")",
 
-        amount
-        + r"[^\n\r]{0,100}?"
-        r"(?:EMD|earnest money deposit|bid security)",
+        r"(" + amount + r")"
+        r"[^\n\r]{0,100}?"
+        r"\b(?:EMD|earnest money deposit|bid security)\b",
     ]
 
     emd = _find(text, emd_patterns)
@@ -197,9 +186,7 @@ def extract_findings(text: str) -> list[dict]:
         "evidence": emd_evidence,
     })
 
-    # ---------------------------------------------------------
     # 3. OTHER TENDER FIELDS
-    # ---------------------------------------------------------
 
     patterns = [
         (
@@ -235,11 +222,7 @@ def extract_findings(text: str) -> list[dict]:
                 if matches
                 else "Not detected in supplied text"
             ),
-            "status": (
-                "REVIEW_REQUIRED"
-                if matches
-                else "NOT_DETECTED"
-            ),
+            "status": "REVIEW_REQUIRED" if matches else "NOT_DETECTED",
             "evidence": (
                 "Pattern extraction only; verify against the official notice."
             ),
@@ -248,16 +231,12 @@ def extract_findings(text: str) -> list[dict]:
     return findings
 
 
-def _text(
-    value,
-    default="Not stated in supplied text",
-) -> str:
+def _text(value, default="Not stated in supplied text") -> str:
     """Convert an AI response field to safe, bounded text."""
-
     if isinstance(value, str) and value.strip():
         return value.strip()[:3000]
 
-    if isinstance(value, (int, float)):
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
         return str(value)
 
     return default
@@ -265,7 +244,6 @@ def _text(
 
 def _items(value) -> list[str]:
     """Validate and limit list fields returned by Gemini."""
-
     if not isinstance(value, list):
         return []
 
@@ -283,13 +261,8 @@ def _items(value) -> list[str]:
 
 def _read_gemini_error(exc: HTTPError) -> tuple[str, str]:
     """Read a Google error without exposing request credentials."""
-
     try:
-        error_body = exc.read().decode(
-            "utf-8",
-            errors="replace",
-        )
-
+        error_body = exc.read().decode("utf-8", errors="replace")
         error_data = json.loads(error_body)
         error_info = error_data.get("error", {})
 
@@ -301,22 +274,17 @@ def _read_gemini_error(exc: HTTPError) -> tuple[str, str]:
             "No detailed message provided.",
         )
 
-        status = error_info.get(
-            "status",
-            "UNKNOWN",
-        )
+        status = error_info.get("status", "UNKNOWN")
 
         return str(message)[:1500], str(status)[:100]
 
     except (ValueError, TypeError, AttributeError):
-        return (
-            "Could not read Google's error response.",
-            "UNKNOWN",
-        )
+        return "Could not read Google's error response.", "UNKNOWN"
 
 
 def _request_gemini(request: Request) -> dict:
     """Send the Gemini request with limited retries."""
+    last_network_error = None
 
     for attempt in range(GEMINI_MAX_ATTEMPTS):
         try:
@@ -324,49 +292,47 @@ def _request_gemini(request: Request) -> dict:
                 request,
                 timeout=GEMINI_TIMEOUT_SECONDS,
             ) as response:
-                return json.loads(
-                    response.read().decode("utf-8")
-                )
+                result = json.loads(response.read().decode("utf-8"))
+
+                if not isinstance(result, dict):
+                    raise ValueError("Gemini returned an unexpected response.")
+
+                return result
 
         except HTTPError as exc:
             if (
-                exc.code in RETRYABLE_HTTP_CODES
-                and attempt < GEMINI_MAX_ATTEMPTS - 1
+                exc.code not in RETRYABLE_HTTP_CODES
+                or attempt >= GEMINI_MAX_ATTEMPTS - 1
             ):
-                # Retry only temporary/server/rate-limit errors.
-                # Authentication and other permanent errors are
-                # handled immediately by analyze_with_gemini().
-                retry_after = exc.headers.get("Retry-After")
+                raise
 
-                try:
-                    delay = float(retry_after)
-                except (TypeError, ValueError):
-                    delay = 1.5 * (2 ** attempt)
+            retry_after = exc.headers.get("Retry-After")
 
-                # Keep retry waits bounded.
-                delay = max(0.5, min(delay, 8.0))
+            try:
+                delay = float(retry_after)
+            except (TypeError, ValueError):
+                delay = 1.5 * (2 ** attempt)
 
-                exc.close()
-                time.sleep(delay)
-                continue
+            delay = max(0.5, min(delay, 8.0))
 
-            raise
+            exc.close()
+            time.sleep(delay)
 
-        except (URLError, TimeoutError):
+        except (URLError, TimeoutError) as exc:
+            last_network_error = exc
+
             if attempt >= GEMINI_MAX_ATTEMPTS - 1:
                 raise
 
             time.sleep(1.5 * (2 ** attempt))
 
-    raise RuntimeError(
-        "Gemini request failed after all retry attempts."
-    )
+    if last_network_error:
+        raise last_network_error
+
+    raise RuntimeError("Gemini request failed after all retry attempts.")
 
 
-def analyze_with_gemini(
-    title: str,
-    notice_text: str,
-) -> dict:
+def analyze_with_gemini(title: str, notice_text: str) -> dict:
     """Call Gemini and return structured tender analysis."""
 
     key = os.getenv("GEMINI_API_KEY", "").strip()
@@ -443,10 +409,6 @@ Tender text:
         method="POST",
     )
 
-    # ---------------------------------------------------------
-    # GEMINI REQUEST + RETRY ERROR HANDLING
-    # ---------------------------------------------------------
-
     try:
         result = _request_gemini(request)
 
@@ -456,21 +418,18 @@ Tender text:
         if exc.code in (401, 403):
             raise RuntimeError(
                 f"Gemini authentication/access error "
-                f"(HTTP {exc.code}, {error_status}): "
-                f"{error_message}"
+                f"(HTTP {exc.code}, {error_status}): {error_message}"
             ) from exc
 
         if exc.code == 429:
             raise RuntimeError(
                 f"Gemini quota/rate-limit error "
-                f"(HTTP 429, {error_status}): "
-                f"{error_message}"
+                f"(HTTP 429, {error_status}): {error_message}"
             ) from exc
 
         raise RuntimeError(
             f"Gemini API error "
-            f"(HTTP {exc.code}, {error_status}): "
-            f"{error_message}"
+            f"(HTTP {exc.code}, {error_status}): {error_message}"
         ) from exc
 
     except (URLError, TimeoutError) as exc:
@@ -484,16 +443,12 @@ Tender text:
             "Gemini returned an unreadable API response."
         ) from exc
 
-    # ---------------------------------------------------------
     # PARSE GEMINI RESPONSE
-    # ---------------------------------------------------------
 
     try:
         raw = "".join(
             part.get("text", "")
-            for part in (
-                result["candidates"][0]["content"]["parts"]
-            )
+            for part in result["candidates"][0]["content"]["parts"]
         )
 
         data = json.loads(raw)
@@ -501,19 +456,12 @@ Tender text:
         if not isinstance(data, dict):
             raise ValueError("Expected a JSON object.")
 
-    except (
-        KeyError,
-        IndexError,
-        TypeError,
-        ValueError,
-    ) as exc:
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
         raise RuntimeError(
             "Gemini response was missing or was not valid JSON analysis."
         ) from exc
 
-    # ---------------------------------------------------------
     # BUILD STANDARDIZED FINDINGS
-    # ---------------------------------------------------------
 
     findings = []
 
@@ -620,21 +568,16 @@ def get_demo_tenders():
                 "source_url": None,
             },
         ],
-        "notice": (
-            "Synthetic examples, not live government tenders."
-        ),
+        "notice": "Synthetic examples, not live government tenders.",
     }
 
 
 @app.post("/api/analyze")
 def analyze_notice(request: AnalyzeRequest):
     warnings = [
-        "Preliminary analysis only; not legal advice "
-        "or an official eligibility decision.",
-        "Confirm deadlines, EMD, requirements, and corrigenda "
-        "against the latest official notice.",
-        "Only supplied text is analyzed; source_url is recorded "
-        "but is not fetched.",
+        "Preliminary analysis only; not legal advice or an official eligibility decision.",
+        "Confirm deadlines, EMD, requirements, and corrigenda against the latest official notice.",
+        "Only supplied text is analyzed; source_url is recorded but is not fetched.",
     ]
 
     try:
@@ -659,7 +602,6 @@ def analyze_notice(request: AnalyzeRequest):
         }
 
     except RuntimeError as exc:
-        # Never return credentials or request headers.
         return {
             "title": request.title,
             "source_url": request.source_url,
@@ -670,9 +612,7 @@ def analyze_notice(request: AnalyzeRequest):
             "findings": extract_findings(request.notice_text),
             "warnings": warnings + [
                 str(exc),
-                (
-                    "Fallback uses text-pattern matching only, "
-                    "not Gemini AI."
-                ),
+                "Fallback uses text-pattern matching only, not Gemini AI.",
             ],
         }
+```
