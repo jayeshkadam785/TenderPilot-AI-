@@ -1,4 +1,3 @@
-```python
 """TenderPilot AI: Gemini-assisted tender analysis API with safe fallback."""
 
 from datetime import datetime, timezone
