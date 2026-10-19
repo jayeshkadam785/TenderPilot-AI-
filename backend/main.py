@@ -55,10 +55,33 @@ def analyze_with_gemini(title: str, notice_text: str) -> dict:
     req = Request(url,data=json.dumps(payload).encode(),headers={"Content-Type":"application/json","x-goog-api-key":key},method="POST")
     try:
         with urlopen(req,timeout=25) as response: result=json.loads(response.read().decode())
-    except HTTPError as exc:
-        if exc.code in (401,403): raise RuntimeError("Gemini rejected the API key or the API is not enabled.") from exc
-        if exc.code==429: raise RuntimeError("Gemini quota/rate limit reached; check AI Studio usage limits.") from exc
-        raise RuntimeError(f"Gemini API returned HTTP {exc.code}.") from exc
+```python
+except HTTPError as exc:
+    try:
+        error_body = exc.read().decode("utf-8", errors="replace")
+        error_data = json.loads(error_body)
+        error_info = error_data.get("error", {})
+        error_message = error_info.get("message", "No detailed message provided.")
+        error_status = error_info.get("status", "UNKNOWN")
+    except Exception:
+        error_message = "Could not read Google's error response."
+        error_status = "UNKNOWN"
+
+    if exc.code in (401, 403):
+        raise RuntimeError(
+            f"Gemini authentication/access error (HTTP {exc.code}, {error_status}): {error_message}"
+        ) from exc
+
+    if exc.code == 429:
+        raise RuntimeError(
+            f"Gemini quota/rate limit error (HTTP 429, {error_status}): {error_message}"
+        ) from exc
+
+    raise RuntimeError(
+        f"Gemini API error (HTTP {exc.code}, {error_status}): {error_message}"
+    ) from exc
+```
+
     except (URLError,TimeoutError) as exc: raise RuntimeError("Could not reach Gemini API before timeout.") from exc
     try:
         raw="".join(p.get("text","") for p in result["candidates"][0]["content"]["parts"])
