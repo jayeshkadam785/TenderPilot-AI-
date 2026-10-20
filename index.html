@@ -1271,7 +1271,160 @@
     if (/registration|experience|turnover|certificate/i.test(f.notice || "")) reasons.push("Check manually: notice mein eligibility conditions hain");
     return { ok: blocks.length === 0, reasons, blocks };
   }
+function vEligibility() {
+  const results = Array.isArray(S.eligibilityMatches)
+    ? S.eligibilityMatches
+    : [];
 
+  const profile = S.eligibilityProfile || {};
+
+  const cards = results.length
+    ? results.map((m, i) => `
+        <div class="ap" style="border-left-color:var(--ok)">
+          <div class="tile" style="border-radius:12px">
+            ${ic("target", 16)}
+          </div>
+          <div class="body">
+            <div class="row" style="justify-content:space-between">
+              <div class="strong">${esc(m.title || m.tender_title || "Untitled tender")}</div>
+              ${chip(
+                m.label || "Preliminary match",
+                "t-ok"
+              )}
+            </div>
+
+            <div class="muted sm">
+              Match score: ${esc(String(m.score ?? "N/A"))}
+              · Source: ${esc(m.source || "Not specified")}
+              · ${m.verified === true ? "Verified" : "Not verified"}
+            </div>
+
+            ${
+              m.reasons?.length
+                ? `<h4>Reasons</h4>
+                   <ul>${m.reasons.map(r =>
+                     `<li>${esc(typeof r === "string" ? r : JSON.stringify(r))}</li>`
+                   ).join("")}</ul>`
+                : ""
+            }
+
+            ${
+              m.warnings?.length
+                ? `<h4>Warnings</h4>
+                   <ul>${m.warnings.map(w =>
+                     `<li>${esc(typeof w === "string" ? w : JSON.stringify(w))}</li>`
+                   ).join("")}</ul>`
+                : ""
+            }
+
+            ${
+              m.checks?.length
+                ? `<details>
+                     <summary>Eligibility checks</summary>
+                     <pre>${esc(JSON.stringify(m.checks, null, 2))}</pre>
+                   </details>`
+                : ""
+            }
+          </div>
+        </div>
+      `).join("")
+    : `<div class="empty">
+         <div class="ei">${ic("target", 22)}</div>
+         <b>No matching results yet</b>
+         <span>Enter your business details and click Find matches.</span>
+       </div>`;
+
+  return `
+    <div class="page-h">
+      <div>
+        <div class="eyebrow">AI tools</div>
+        <h1 class="h1">MSME Eligibility Matching</h1>
+        <p class="sub">
+          Compare your business profile with available tender records.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout warn">
+      <div class="ci">${ic("alert", 15)}</div>
+      <div>
+        <b>Preliminary screening only.</b>
+        Always check the original tender document and latest corrigenda.
+        A match score does not guarantee eligibility.
+      </div>
+    </div>
+
+    <section class="card card-b stack">
+      <div class="section-t">Your business profile</div>
+
+      <form id="eligibilityForm" class="stack">
+        <label class="fl">Company name
+          <input class="inp" name="company_name"
+            value="${esc(profile.company_name || "")}" required>
+        </label>
+
+        <label class="fl">Business category
+          <select class="inp" name="category" required>
+            <option value="">Select category</option>
+            ${["IT Equipment","IT Services","Construction","Office Supplies","Healthcare","Other"].map(c =>
+              `<option value="${c}" ${profile.category === c ? "selected" : ""}>${c}</option>`
+            ).join("")}
+          </select>
+        </label>
+
+        <label class="fl">Region / State
+          <input class="inp" name="region"
+            value="${esc(profile.region || "Maharashtra")}" required>
+        </label>
+
+        <label class="fl">Minimum tender value (₹)
+          <input class="inp" type="number" name="min_budget"
+            min="0" value="${profile.min_budget ?? 0}" required>
+        </label>
+
+        <label class="fl">Maximum tender value (₹)
+          <input class="inp" type="number" name="max_budget"
+            min="0" value="${profile.max_budget ?? 10000000}" required>
+        </label>
+
+        <label class="fl">Annual turnover (₹)
+          <input class="inp" type="number" name="annual_turnover"
+            min="0" value="${profile.annual_turnover ?? ""}">
+        </label>
+
+        <label class="fl">Similar work experience (years)
+          <input class="inp" type="number" name="similar_work_years"
+            min="0" value="${profile.similar_work_years ?? ""}">
+        </label>
+
+        <label class="row">
+          <input type="checkbox" name="msme_registered"
+            ${profile.msme_registered ? "checked" : ""}>
+          MSME registered
+        </label>
+
+        <button class="btn primary" type="submit">
+          Find matching tenders
+        </button>
+      </form>
+    </section>
+
+    <section class="card" style="margin-top:var(--s2)">
+      <div class="card-h">
+        <h2>Matching results (${results.length})</h2>
+        <div class="row">
+          <button class="btn ghost sm" data-a="eligibility-export">
+            Export CSV
+          </button>
+          <button class="btn ghost sm" data-a="eligibility-clear">
+            Clear results
+          </button>
+        </div>
+      </div>
+      <div class="card-b stack">${cards}</div>
+    </section>
+  `;
+}
   function vRecommended() {
     const rows = S.feed.map(f => ({ f, m: matchFeed(f), added: S.tenders.some(t => t.feedId === f.fid) }));
     rows.sort((a, b) => b.m.ok - a.m.ok);
