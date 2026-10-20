@@ -1761,13 +1761,8 @@ function vEligibility() {
 
   render();
 },
-      S.tenders.push(t);
-      S.cur = t.id; S.tab = "overview"; S.view = "detail";
-      logIt(`Generated checklist for ${t.id} from AI analysis (${required.length} suggested document(s))`, "warn",
-        { step: "Document Pack Agent", source: a.source || "Pasted tender notice", failure: "Suggested documents are unverified; no official files downloaded" });
-      toast(required.length ? "Document checklist created — verify each item" : "Tender saved; add required documents manually");
-      render();
-    },
+    notif: () => { S.notifOpen = !S.notifOpen; renderBell(); },
+    "enable-alerts": () => enableAlerts(),
     notif: () => { S.notifOpen = !S.notifOpen; renderBell(); },
     "enable-alerts": () => enableAlerts(),
     propose: el => {
