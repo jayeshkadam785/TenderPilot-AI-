@@ -1459,19 +1459,107 @@
       logIt("Cleared recommended feed", "info", { step: "Feed", source: "Your action" });
       toast("Feed cleared"); render();
     },
-    "analyzer-add": () => {
-      if (!S.analysis) { toast("Run AI analysis first"); return; }
-      const a = S.analysis;
-      const required = [...new Set((a.documentList || []).map(x => String(x).trim()).filter(Boolean))];
-      const t = mk({
-        id: "TN-" + String(S.seq++).padStart(3, "0"),
-        title: a.title,
-        sourceUrl: a.source,
-        notice: a.notice || "",
-        origin: "ai-analysis",
-        required,
-        aiAnalysis: { mode: a.mode, model: a.model, emd: a.emd, deadline: a.deadline, eligibility: a.eligibility, docs: a.docs, risks: a.risks || [], missing: a.missing || [], officiallyVerified: !!a.officiallyVerified }
-      });
+  "analyzer-add": () => {
+  if (!S.analysis) {
+    toast("Run AI analysis first");
+    return;
+  }
+
+  const a = S.analysis;
+
+  const required = [...new Set(
+    (a.documentList || [])
+      .map(x => String(x).trim())
+      .filter(Boolean)
+  )];
+
+  // Keep the AI-extracted deadline as a candidate, not a verified date.
+  const parseCandidateDate = value => {
+    if (!value || /^(not found|unknown|not stated|none)$/i.test(String(value).trim())) {
+      return null;
+    }
+
+    const text = String(value).trim();
+
+    // Supports dates such as "15 November 2026".
+    const match = text.match(
+      /\b(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i
+    );
+
+    if (!match) return null;
+
+    const months = {
+      january: 0, february: 1, march: 2, april: 3,
+      may: 4, june: 5, july: 6, august: 7,
+      september: 8, october: 9, november: 10, december: 11
+    };
+
+    const day = Number(match[1]);
+    const month = months[match[2].toLowerCase()];
+    const year = Number(match[3]);
+
+    const date = new Date(year, month, day, 17, 0, 0);
+
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month ||
+      date.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return date.toISOString();
+  };
+
+  const candidateDeadline = parseCandidateDate(a.deadline);
+
+  const t = mk({
+    id: "TN-" + String(S.seq++).padStart(3, "0"),
+    title: a.title,
+    sourceUrl: a.source || "",
+    notice: a.notice || "",
+    closing: null,
+    origin: "ai-analysis",
+    required,
+
+    aiAnalysis: {
+      mode: a.mode,
+      model: a.model,
+      emd: a.emd,
+      deadline: a.deadline,
+      candidateDeadline,
+      eligibility: a.eligibility,
+      docs: a.docs,
+      documentList: required,
+      risks: a.risks || [],
+      missing: a.missing || [],
+      officiallyVerified: !!a.officiallyVerified
+    }
+  });
+
+  S.tenders.push(t);
+  S.cur = t.id;
+  S.tab = "overview";
+  S.view = "detail";
+
+  logIt(
+    `Generated checklist for ${t.id} from AI analysis (${required.length} suggested document(s))`,
+    "warn",
+    {
+      step: "Document Pack Agent",
+      source: a.source || "Pasted tender notice",
+      failure: "AI findings are preliminary; deadline, EMD and documents require verification."
+    }
+  );
+
+  toast(
+    required.length
+      ? "Checklist created — verify AI findings"
+      : "Tender saved; add required documents manually"
+  );
+
+  render();
+},
       S.tenders.push(t);
       S.cur = t.id; S.tab = "overview"; S.view = "detail";
       logIt(`Generated checklist for ${t.id} from AI analysis (${required.length} suggested document(s))`, "warn",
