@@ -1575,6 +1575,54 @@ function vEligibility() {
   }
 
   const actions = {
+    "eligibility-clear": () => {
+  S.eligibilityMatches = [];
+  toast("Eligibility results cleared");
+  render();
+},
+
+"eligibility-export": () => {
+  const rows = Array.isArray(S.eligibilityMatches)
+    ? S.eligibilityMatches
+    : [];
+
+  if (!rows.length) {
+    toast("Run matching first");
+    return;
+  }
+
+  const q = v => '"' +
+    String(v == null ? "" : v).replace(/"/g, '""') + '"';
+
+  const header = [
+    "Rank", "Tender", "Score", "Label",
+    "Source", "Verified", "Reasons", "Warnings"
+  ];
+
+  const csv = [
+    header.join(","),
+    ...rows.map((m, i) => [
+      i + 1,
+      m.title || m.tender_title || "",
+      m.score ?? "",
+      m.label || "",
+      m.source || "",
+      m.verified === true,
+      (m.reasons || []).map(x =>
+        typeof x === "string" ? x : JSON.stringify(x)
+      ).join("; "),
+      (m.warnings || []).map(x =>
+        typeof x === "string" ? x : JSON.stringify(x)
+      ).join("; ")
+    ].map(q).join(","))
+  ].join("\r\n");
+
+  saveFile(
+    "tenderpilot-eligibility-matches.csv",
+    csv,
+    "text/csv;charset=utf-8"
+  );
+},
     go: el => { S.view = el.dataset.v; if (S.view === "tenders") S.tab = "overview"; render(); window.scrollTo(0, 0); },
     open: el => { S.cur = el.dataset.id; S.tab = "overview"; S.view = "detail"; render(); window.scrollTo(0, 0); },
     tab: el => { S.tab = el.dataset.v; render(); },
