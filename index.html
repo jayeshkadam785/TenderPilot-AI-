@@ -1792,6 +1792,73 @@ function vEligibility() {
       logIt(`File list updated for ${t.id}`, "info", { step: "Documents", source: "Your input" });
       toast("File list saved"); render();
     },
+    eligibilityForm: async f => {
+  const d = new FormData(f);
+
+  const profile = {
+    company_name: String(d.get("company_name") || "").trim(),
+    category: String(d.get("category") || "").trim(),
+    region: String(d.get("region") || "").trim(),
+    min_budget: Number(d.get("min_budget") || 0),
+    max_budget: Number(d.get("max_budget") || 0),
+    annual_turnover: d.get("annual_turnover") === ""
+      ? null : Number(d.get("annual_turnover")),
+    similar_work_years: d.get("similar_work_years") === ""
+      ? null : Number(d.get("similar_work_years")),
+    msme_registered: d.get("msme_registered") === "on"
+  };
+
+  if (!profile.company_name || !profile.category || !profile.region) {
+    toast("Fill in company, category and region");
+    return;
+  }
+
+  if (profile.min_budget > profile.max_budget) {
+    toast("Minimum value cannot exceed maximum");
+    return;
+  }
+
+  S.eligibilityProfile = profile;
+  toast("Matching tenders...");
+
+  try {
+    const res = await fetch(
+      "https://tender-pilot-ai-backend.vercel.app/api/eligibility-match",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile })
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.detail || "Backend request failed");
+    }
+
+    S.eligibilityMatches = Array.isArray(data.matches)
+      ? data.matches : [];
+
+    logIt(
+      "Eligibility matching completed: " +
+      S.eligibilityMatches.length + " result(s)",
+      "warn",
+      {
+        step: "MSME Eligibility Matching Agent",
+        source: "TenderPilot backend",
+        failure: "Preliminary screening only; verify original tender documents."
+      }
+    );
+
+    toast("Matching complete — verify each tender");
+    render();
+
+  } catch (err) {
+    console.error(err);
+    toast("Matching failed: " + (err.message || "backend unavailable"));
+  }
+},
     analyzerForm: async f => {
       const d = new FormData(f);
       const body = {
