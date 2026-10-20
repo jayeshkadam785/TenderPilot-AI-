@@ -566,3 +566,334 @@ def analyze_tender(request: AnalyzeRequest):
             status_code=500,
             detail="Tender analysis failed. Please check the input.",
         )
+# =========================================================
+# 11. MSME ELIGIBILITY MATCHING AGENT
+# =========================================================
+
+class BusinessProfile(BaseModel):
+    company_name: str = Field(..., min_length=1, max_length=200)
+    category: str = Field(..., min_length=1, max_length=100)
+    region: str = Field(..., min_length=1, max_length=100)
+
+    min_budget: float = Field(default=0, ge=0)
+    max_budget: float = Field(..., gt=0)
+
+    annual_turnover: float | None = Field(default=None, ge=0)
+    similar_work_years: float | None = Field(default=None, ge=0)
+    msme_registered: bool | None = None
+
+
+class EligibilityMatchRequest(BaseModel):
+    profile: BusinessProfile
+
+    tenders: list[dict[str, Any]] | None = None
+
+
+def normalize_text(value: Any) -> str:
+    return re.sub(
+        r"[^a-z0-9]+",
+        " ",
+        str(value or "").lower()
+    ).strip()
+
+
+def score_tender_for_business(
+    profile: BusinessProfile,
+    tender: dict[str, Any]
+) -> dict[str, Any]:
+
+    score = 0
+    checks = []
+    reasons = []
+    warnings = []
+
+    def add_check(name, status, detail, points):
+        nonlocal score
+
+        score += points
+
+        checks.append({
+            "check": name,
+            "status": status,
+            "detail": detail,
+            "points": points
+        })
+
+    # 1. BUSINESS CATEGORY
+
+    category = normalize_text(profile.category)
+
+    tender_category = normalize_text(
+        tender.get("category", "")
+    )
+
+    tender_title = normalize_text(
+        tender.get("title", "")
+    )
+
+    tokens = [
+        word for word in category.split()
+        if len(word) > 2
+    ]
+
+    category_match = bool(
+        tokens and any(
+            word in tender_category
+            or word in tender_title
+            for word in tokens
+        )
+    )
+
+    add_check(
+        "Business category",
+        "match" if category_match else "review",
+        (
+            "Business category appears relevant."
+            if category_match
+            else "Manually review the tender scope."
+        ),
+        30 if category_match else 8
+    )
+
+    if category_match:
+        reasons.append(
+            "Business category appears relevant."
+        )
+
+    # 2. LOCATION
+
+    business_region = normalize_text(profile.region)
+
+    tender_region = normalize_text(
+        tender.get("location", "")
+    )
+
+    region_match = bool(
+        business_region
+        and tender_region
+        and (
+            business_region == tender_region
+            or business_region in tender_region
+            or tender_region in business_region
+            or "india" in tender_region
+        )
+    )
+
+    add_check(
+        "Geographic coverage",
+        "match" if region_match else "review",
+        (
+            "Location appears compatible."
+            if region_match
+            else "Check the official bidder-location rules."
+        ),
+        20 if region_match else 5
+    )
+
+    if region_match:
+        reasons.append(
+            "Location appears compatible."
+        )
+
+    # 3. TENDER VALUE
+
+    try:
+        value = float(
+            tender["estimated_value"]
+        ) if tender.get("estimated_value") is not None else None
+    except (TypeError, ValueError):
+        value = None
+
+    if value is None:
+        add_check(
+            "Tender value",
+            "unknown",
+            "Tender value is not available.",
+            5
+        )
+
+        warnings.append(
+            "Tender value needs verification."
+        )
+
+    elif profile.min_budget <= value <= profile.max_budget:
+        add_check(
+            "Tender value",
+            "match",
+            f"Tender value ₹{value:,.0f} fits your budget.",
+            20
+        )
+
+        reasons.append(
+            "Tender value fits your selected budget."
+        )
+
+    else:
+        add_check(
+            "Tender value",
+            "outside_range",
+            f"Tender value ₹{value:,.0f} is outside your budget.",
+            0
+        )
+
+        warnings.append(
+            "Tender value is outside your selected budget."
+        )
+
+    # 4. TURNOVER
+    # The demo records have no verified turnover thresholds.
+
+    add_check(
+        "Annual turnover",
+        "not_verified",
+        "Compare business turnover with the official tender clause.",
+        10
+    )
+
+    if profile.annual_turnover is None:
+        warnings.append(
+            "Business annual turnover was not provided."
+        )
+    else:
+        warnings.append(
+            "Verify the official minimum turnover requirement."
+        )
+
+    # 5. EXPERIENCE
+
+    add_check(
+        "Similar-work experience",
+        "not_verified",
+        "Compare experience with the official tender clause.",
+        10
+    )
+
+    if profile.similar_work_years is None:
+        warnings.append(
+            "Similar-work experience was not provided."
+        )
+    else:
+        warnings.append(
+            "Verify the official experience requirement."
+        )
+
+    # 6. MSME REGISTRATION
+
+    if profile.msme_registered is True:
+        add_check(
+            "MSME registration",
+            "provided",
+            "Verify the certificate and tender-specific benefits.",
+            5
+        )
+
+        warnings.append(
+            "MSME exemptions depend on the official tender conditions."
+        )
+
+    elif profile.msme_registered is False:
+        add_check(
+            "MSME registration",
+            "not_registered",
+            "Business profile says MSME registration is unavailable.",
+            0
+        )
+
+    else:
+        add_check(
+            "MSME registration",
+            "unknown",
+            "Registration status was not provided.",
+            2
+        )
+
+        warnings.append(
+            "Provide your MSME registration status."
+        )
+
+    # 7. FINAL RESULT
+
+    score = min(100, max(0, score))
+
+    if score >= 75:
+        label = "Strong potential match"
+    elif score >= 50:
+        label = "Review before applying"
+    else:
+        label = "Low apparent match"
+
+    return {
+        "tender_id": tender.get(
+            "id", "USER-SUPPLIED"
+        ),
+        "title": tender.get(
+            "title", "Untitled tender"
+        ),
+        "score": score,
+        "match_label": label,
+        "reasons": reasons,
+        "checks": checks,
+        "warnings": list(dict.fromkeys(warnings)),
+        "source": tender.get(
+            "source", "User-supplied record"
+        ),
+        "verified": False,
+        "decision": "PRELIMINARY_SCREEN_ONLY"
+    }
+
+
+# =========================================================
+# 12. ELIGIBILITY MATCH API
+# =========================================================
+
+@app.post("/api/eligibility-match")
+def eligibility_match(
+    request: EligibilityMatchRequest
+):
+    try:
+        tender_records = (
+            request.tenders
+            if request.tenders is not None
+            else DEMO_TENDERS
+        )
+
+        results = [
+            score_tender_for_business(
+                request.profile,
+                tender
+            )
+            for tender in tender_records
+        ]
+
+        results.sort(
+            key=lambda item: item["score"],
+            reverse=True
+        )
+
+        return {
+            "success": True,
+            "agent": "MSME Eligibility Matching Agent",
+            "mode": "RULE_BASED_PRELIMINARY_SCREEN",
+            "business": request.profile.model_dump(),
+            "count": len(results),
+            "matches": results,
+            "notice": (
+                "Preliminary suitability screening only. "
+                "Verify all mandatory eligibility requirements "
+                "against the latest official tender documents."
+            )
+        }
+
+    except Exception as error:
+        print(
+            f"Eligibility matching error: "
+            f"{type(error).__name__}"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Eligibility matching failed. "
+                "Check the supplied profile and tender records."
+            )
+        )
