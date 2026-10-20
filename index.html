@@ -1332,24 +1332,33 @@
 
   function vAnalyzer() {
     const a = S.analysis;
-    return `<div class="page-h"><div><div class="eyebrow">AI workspace</div><h1 class="h1">Tender analyzer</h1><p class="sub">Paste tender notice text to extract likely deadline, EMD, eligibility clues and document requirements. This preview is not a verified result.</p></div><span class="chip t-warn">PREVIEW · NOT AI VERIFIED</span></div>
+    const listBlock = (title, values) => {
+      const items = Array.isArray(values) ? values : [];
+      return `<div class="metric"><span>${esc(title)}</span>${items.length ? `<ul style="margin:8px 0 0;padding-left:20px">${items.map(x => `<li style="margin:4px 0">${esc(x)}</li>`).join("")}</ul>` : `<b>None returned by the analyzer</b>`}</div>`;
+    };
+    return `<div class="page-h"><div><div class="eyebrow">AI workspace</div><h1 class="h1">Tender analyzer</h1><p class="sub">Gemini reviews pasted tender text and extracts clues. Verify all findings against the official notice before making a bid decision.</p></div><span class="chip t-warn">AI EXTRACTION · REVIEW REQUIRED</span></div>
       <div class="grid2">
         <form id="analyzerForm" class="card card-b stack">
           <div class="section-t">Tender notice input</div>
           <label class="fl">Tender title<input class="inp" name="title" placeholder="e.g. IT support services tender" required /></label>
           <label class="fl">Official source URL <input class="inp" name="source" type="url" placeholder="https://official-portal.gov.in/..." /></label>
           <label class="fl">Paste notice / RFP text<textarea class="inp" name="notice" rows="10" required placeholder="Paste the notice text here. Include closing date, EMD, eligibility and annexures if available."></textarea></label>
-          <div class="row" style="justify-content:space-between"><span class="hint">Do not paste passwords, OTPs or confidential credentials.</span><button class="btn primary" type="submit">Analyze notice</button></div>
+          <div class="row" style="justify-content:space-between"><span class="hint">Do not paste passwords, OTPs or confidential credentials.</span><button class="btn primary" type="submit">Analyze with AI</button></div>
         </form>
-        <section class="card card-b stack"><div class="section-t">Analysis results</div>
-          ${a ? `<div class="callout warn"><div class="ci">${ic("alert",15)}</div><div><b>Preliminary extraction only</b><div class="sm" style="margin-top:4px">Confirm each item against the official tender notice and latest corrigenda.</div></div></div>
+        <section class="card card-b stack"><div class="section-t">AI analysis results</div>
+          ${a ? `<div class="callout warn"><div class="ci">${ic("alert",15)}</div><div><b>Human verification required</b><div class="sm" style="margin-top:4px">AI extraction is not official verification. Source pages and corrigenda have not automatically been verified.</div></div></div>
+            <div class="metric"><span>Analysis engine</span><b>${esc(a.mode || "Backend response")} · ${esc(a.model || "Model not reported")}</b></div>
             <div class="metric"><span>Tender</span><b>${esc(a.title)}</b></div>
             <div class="metric"><span>EMD clue</span><b>${esc(a.emd)}</b></div>
             <div class="metric"><span>Deadline clue</span><b>${esc(a.deadline)}</b></div>
             <div class="metric"><span>Experience / turnover clues</span><b>${esc(a.eligibility)}</b></div>
             <div class="metric"><span>Document / annexure clues</span><b>${esc(a.docs)}</b></div>
+            ${listBlock("Suggested document checklist (not confirmed)", a.documentList)}
+            ${listBlock("Risks flagged by AI", a.risks)}
+            ${listBlock("Information still missing", a.missing)}
             <div class="metric"><span>Evidence source</span><b style="font-size:13px;word-break:break-all">${a.source ? `<a href="${esc(a.source)}" target="_blank" rel="noopener noreferrer">Open source</a>` : "No source URL supplied"}</b></div>
-            <button class="btn" data-a="analyzer-add">Create manual tender from analysis</button>` : `<div class="empty"><div class="ei">${ic("doc",22)}</div><b>No analysis yet</b><span>Paste a notice and select Analyze notice. Results will be marked preliminary until verified.</span></div>`}
+            <button class="btn primary" data-a="analyzer-add">Generate document pack checklist</button>
+            <span class="hint">This creates a checklist only. It does not download official tender files or submit a bid.</span>` : `<div class="empty"><div class="ei">${ic("doc",22)}</div><b>No analysis yet</b><span>Paste a notice and select Analyze with AI. Results will be marked preliminary until verified.</span></div>`}
         </section>
       </div>`;
   }
@@ -1451,12 +1460,24 @@
       toast("Feed cleared"); render();
     },
     "analyzer-add": () => {
-      if (!S.analysis) return;
+      if (!S.analysis) { toast("Run AI analysis first"); return; }
       const a = S.analysis;
-      const t = mk({ id: "TN-" + String(S.seq++).padStart(3, "0"), title: a.title, sourceUrl: a.source, notice: "Preliminary analyzer input. Verify all extracted fields against the official notice.", origin: "manual", required: [] });
-      S.tenders.push(t); S.cur = t.id; S.tab = "overview"; S.view = "detail";
-      logIt(`Created manual tender record from analyzer: ${t.id}`, "warn", { step: "Analyzer", source: a.source || "Pasted notice", failure: "Extracted fields require manual verification" });
-      toast("Manual tender record created; verify details"); render();
+      const required = [...new Set((a.documentList || []).map(x => String(x).trim()).filter(Boolean))];
+      const t = mk({
+        id: "TN-" + String(S.seq++).padStart(3, "0"),
+        title: a.title,
+        sourceUrl: a.source,
+        notice: a.notice || "",
+        origin: "ai-analysis",
+        required,
+        aiAnalysis: { mode: a.mode, model: a.model, emd: a.emd, deadline: a.deadline, eligibility: a.eligibility, docs: a.docs, risks: a.risks || [], missing: a.missing || [], officiallyVerified: !!a.officiallyVerified }
+      });
+      S.tenders.push(t);
+      S.cur = t.id; S.tab = "overview"; S.view = "detail";
+      logIt(`Generated checklist for ${t.id} from AI analysis (${required.length} suggested document(s))`, "warn",
+        { step: "Document Pack Agent", source: a.source || "Pasted tender notice", failure: "Suggested documents are unverified; no official files downloaded" });
+      toast(required.length ? "Document checklist created — verify each item" : "Tender saved; add required documents manually");
+      render();
     },
     notif: () => { S.notifOpen = !S.notifOpen; renderBell(); },
     "enable-alerts": () => enableAlerts(),
@@ -1546,22 +1567,41 @@
         });
         if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
-        const get = field => (data.findings.find(x => x.field === field) || {}).value || "Not found";
+        const findings = Array.isArray(data.findings) ? data.findings : [];
+        const get = field => {
+          const item = findings.find(x => x.field === field);
+          return item && item.value != null && String(item.value).trim() ? String(item.value).trim() : "Not found";
+        };
+        const docText = get("documents");
+        const documentList = docText === "Not found" || /^(none|not stated|not found|unknown)$/i.test(docText)
+          ? []
+          : docText.split(/[;,\\n]+/).map(x => x.trim()).filter(x => x && !/^(documents?|corrigendum)$/i.test(x));
+        const toList = value => {
+          const items = Array.isArray(value) ? value.map(String) : typeof value === "string" ? value.split(/[;\\n]+/).map(x => x.trim()).filter(Boolean) : [];
+          return items.filter(x => x && !/^(not found|none|unknown|not stated)$/i.test(x));
+        };
         S.analysis = {
-          title: data.title,
-          source: data.source_url || "",
+          title: data.title || body.title,
+          source: data.source_url || body.source_url || "",
+          notice: body.notice_text,
+          mode: data.analysis_mode || "AI analysis",
+          model: data.model || "Not reported",
+          officiallyVerified: data.officially_verified === true,
           emd: get("possible_emd"),
           deadline: get("possible_deadline"),
           eligibility: ["turnover", "experience"].map(k => `${k}: ${get(k)}`).join("; "),
-          docs: ["documents", "corrigendum"].map(k => `${k}: ${get(k)}`).join("; ")
+          docs: ["documents", "corrigendum"].map(k => `${k}: ${get(k)}`).join("; "),
+          documentList,
+          risks: toList(data.risks || data.risk_flags || get("risks")),
+          missing: toList(data.missing_information || data.missing_info || get("missing_information"))
         };
-        logIt(`Backend analysis done: ${data.title} (${data.analysis_mode})`, "warn",
-          { step: "Analyzer", source: "Render backend /api/analyze", failure: "Rule-based preview; not verified" });
-        toast("Backend analysis ready");
+        logIt(`Backend analysis done: ${data.title || body.title} (${data.analysis_mode || "mode not reported"})`, "warn",
+          { step: "AI Analyzer", source: "TenderPilot backend /api/analyze", failure: data.officially_verified === true ? "" : "AI extraction only; official source not verified" });
+        toast("AI analysis ready — review findings");
         render();
       } catch (err) {
         console.error(err);
-        toast("Backend not reachable. Check Render status or CORS.");
+        toast("AI backend not reachable. Check backend deployment and try again.");
       }
     },
     compareForm: f => {
