@@ -1,17 +1,17 @@
 def extract_findings(text):
     """
-    Rule-based fallback for tender analysis.
+    Rule-based tender extraction fallback.
 
     Extracts:
-    - Tender deadline
-    - EMD / bid security
-    - Turnover requirements
-    - Experience requirements
+    - Deadline and time
+    - EMD / bid security amount
+    - Turnover requirement
+    - Experience requirement
     - Required documents
     - Corrigendum clues
 
-    Important:
-    These are preliminary text extractions, not official verification.
+    Extracted information is preliminary and must be verified
+    against the latest official tender notice.
     """
 
     if not isinstance(text, str):
@@ -19,109 +19,151 @@ def extract_findings(text):
 
     text = text.strip()
 
+    not_found = "Not stated in supplied text"
+
     if not text:
         return {
-            "possible_deadline": "Not stated in supplied text",
-            "possible_emd": "Not stated in supplied text",
-            "turnover": "Not stated in supplied text",
-            "experience": "Not stated in supplied text",
+            "possible_deadline": not_found,
+            "possible_emd": not_found,
+            "turnover": not_found,
+            "experience": not_found,
             "documents": [],
-            "corrigendum": "Not stated in supplied text",
+            "corrigendum": not_found,
         }
 
-    # --------------------------------------------------
-    # Helper: remove unnecessary whitespace
-    # --------------------------------------------------
-
     def clean(value):
-        return re.sub(r"\s+", " ", str(value)).strip(" \t\r\n:;,-")
+        value = str(value)
+        value = re.sub(r"[ \t]+", " ", value)
+        return value.strip(" \t\r\n:;,-")
+
+    def unique(items):
+        result = []
+        seen = set()
+
+        for item in items:
+            item = clean(item)
+
+            if item and item.lower() not in seen:
+                result.append(item)
+                seen.add(item.lower())
+
+        return result
 
     # --------------------------------------------------
     # 1. DEADLINE EXTRACTION
     # --------------------------------------------------
 
-    deadline_patterns = [
-        # Example: Deadline: 15 November 2026, 5:00 PM IST
-        r"(?im)^\s*(?:bid\s+submission\s+)?"
-        r"(?:submission\s+)?(?:deadline|closing\s+date|"
-        r"last\s+date|due\s+date|bid\s+end\s+date)"
-        r"\s*(?:for\s+submission)?\s*[:=\-]?\s*"
-        r"([^\n\r]{3,120})",
-
-        # Example: Tender closes on 15 November 2026
-        r"(?i)\b(?:closes?|closing|submit\s+by|"
-        r"last\s+date\s+for\s+submission)"
-        r"\s*(?:on|is|:|-)?\s*"
-        r"([^\n\r]{3,100})",
-
-        # Example: 15 November 2026
-        r"(?i)\b\d{1,2}\s+"
+    date_pattern = (
+        r"\d{1,2}\s+"
         r"(?:January|February|March|April|May|June|July|"
         r"August|September|October|November|December)"
         r"\s+\d{4}"
-        r"(?:[,\s]+(?:at\s+)?\d{1,2}(?::\d{2})?"
-        r"\s*(?:AM|PM|IST)?)?",
-    ]
+        r"|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}"
+    )
+
+    time_pattern = (
+        r"(?:,\s*|\s+)?"
+        r"(?:at\s+)?"
+        r"\d{1,2}:\d{2}\s*(?:AM|PM)"
+        r"(?:\s*(?:IST|UTC))?"
+        r"|\s+\d{1,2}\s*(?:AM|PM)"
+        r"(?:\s*(?:IST|UTC))?"
+    )
 
     deadline = None
 
-    for pattern in deadline_patterns:
-        match = re.search(pattern, text)
+    deadline_labels = re.compile(
+        r"(?im)^\s*"
+        r"(?:bid\s+submission\s+|submission\s+)?"
+        r"(?:deadline|closing\s+date|last\s+date|"
+        r"due\s+date|bid\s+end\s+date)"
+        r"\s*(?::|=|-)?\s*(.+)$"
+    )
 
-        if match:
-            candidate = clean(match.group(1) if match.lastindex else match.group(0))
+    for line in text.splitlines():
+        match = deadline_labels.search(line)
 
-            if candidate and len(candidate) <= 120:
-                deadline = candidate
-                break
+        if not match:
+            continue
+
+        value = clean(match.group(1))
+
+        date_match = re.search(date_pattern, value, re.I)
+
+        if date_match:
+            candidate = date_match.group(0)
+
+            remainder = value[date_match.end():]
+
+            time_match = re.search(
+                r"\b\d{1,2}:\d{2}\s*(?:AM|PM)"
+                r"(?:\s*(?:IST|UTC))?"
+                r"|\b\d{1,2}\s*(?:AM|PM)"
+                r"(?:\s*(?:IST|UTC))?",
+                remainder,
+                re.I,
+            )
+
+            if time_match:
+                candidate += ", " + clean(time_match.group(0))
+
+            deadline = candidate
+            break
 
     if not deadline:
-        deadline = "Not stated in supplied text"
+        match = re.search(date_pattern, text, re.I)
+
+        if match:
+            deadline = match.group(0)
+
+            remainder = text[match.end():match.end() + 60]
+
+            time_match = re.search(
+                r"\b\d{1,2}:\d{2}\s*(?:AM|PM)"
+                r"(?:\s*(?:IST|UTC))?"
+                r"|\b\d{1,2}\s*(?:AM|PM)"
+                r"(?:\s*(?:IST|UTC))?",
+                remainder,
+                re.I,
+            )
+
+            if time_match:
+                deadline += ", " + clean(time_match.group(0))
+
+    if not deadline:
+        deadline = not_found
 
     # --------------------------------------------------
-    # 2. EMD / BID SECURITY EXTRACTION
+    # 2. EMD / BID SECURITY AMOUNT
     # --------------------------------------------------
 
     amount_pattern = (
-        r"(?:₹|Rs\.?\s*|INR\s*)?"
-        r"\s*\d[\d,]*(?:\.\d+)?"
-        r"(?:\s*(?:crore|crores|lakh|lakhs|"
-        r"million|thousand))?"
+        r"(?:₹\s*|Rs\.?\s*|INR\s*)?"
+        r"\d[\d,]*(?:\.\d+)?"
+        r"(?:\s*(?:crores?|lakhs?|millions?|thousands?))?"
     )
-
-    emd_patterns = [
-        # Example: EMD: ₹50,000
-        r"(?i)\b(?:EMD|earnest\s+money\s+deposit|"
-        r"bid\s+security|earnest\s+money)"
-        r"\s*(?:\([^)]{0,40}\))?"
-        r"\s*(?:amount)?\s*(?:is|of|:|=|-)?\s*"
-        r"(" + amount_pattern + r")",
-
-        # Example: Earnest Money Deposit (EMD): ₹50,000
-        r"(?i)\bearnest\s+money\s+deposit"
-        r"\s*\(\s*EMD\s*\)\s*[:=\-]?\s*"
-        r"(" + amount_pattern + r")",
-
-        # Example: ₹50,000 EMD
-        r"(" + amount_pattern + r")"
-        r"\s*(?:as\s+)?(?:EMD|bid\s+security)"
-        r"\b",
-    ]
 
     emd = None
 
-    for pattern in emd_patterns:
-        match = re.search(pattern, text)
+    # Match the amount on the same line as the EMD label.
+    for line in text.splitlines():
+        if not re.search(
+            r"(?i)\b(?:EMD|earnest\s+money\s+deposit|"
+            r"bid\s+security|earnest\s+money)\b",
+            line,
+        ):
+            continue
+
+        match = re.search(amount_pattern, line)
 
         if match:
-            candidate = clean(match.group(1))
+            candidate = clean(match.group(0))
 
-            if candidate:
+            if re.search(r"\d", candidate):
                 emd = candidate
                 break
 
     if not emd:
-        # Preserve the clue if the amount could not be extracted.
         if re.search(
             r"(?i)\b(?:EMD|earnest\s+money\s+deposit|"
             r"bid\s+security|earnest\s+money)\b",
@@ -129,224 +171,215 @@ def extract_findings(text):
         ):
             emd = "Mentioned; amount not extracted"
         else:
-            emd = "Not stated in supplied text"
+            emd = not_found
 
     # --------------------------------------------------
-    # 3. TURNOVER EXTRACTION
+    # 3. TURNOVER REQUIREMENT
     # --------------------------------------------------
 
-    turnover_patterns = [
-        r"(?is)\b(?:minimum\s+)?(?:annual\s+)?"
-        r"turnover(?:\s+requirement)?\s*[:\-]?\s*"
-        r"(.{0,250}?)(?=\n\s*(?:experience|"
-        r"required\s+documents|documents|corrigendum|"
-        r"EMD|deadline)\b|\Z)",
+    turnover_lines = []
 
-        r"(?is)\b(?:average\s+)?annual\s+turnover\b"
-        r"(.{0,200}?)(?=\n\s*(?:experience|"
-        r"required\s+documents|documents|corrigendum)\b|\Z)",
-    ]
+    for line in text.splitlines():
+        if re.search(r"(?i)\bturnover\b", line):
+            turnover_lines.append(clean(line))
 
-    turnover = None
+    # Include the following lines when a turnover heading
+    # is followed by the actual requirement.
+    lines = text.splitlines()
 
-    for pattern in turnover_patterns:
-        match = re.search(pattern, text)
+    for index, line in enumerate(lines):
+        if re.search(
+            r"(?i)\bturnover\s+requirement\b",
+            line,
+        ):
+            for following in lines[index + 1:index + 4]:
+                following = clean(following)
 
-        if match:
-            candidate = clean(match.group(0))
+                if not following:
+                    continue
 
-            if candidate:
-                turnover = candidate[:300]
-                break
+                if re.search(
+                    r"(?i)^(experience|required documents|"
+                    r"corrigendum|deadline)\s*:?",
+                    following,
+                ):
+                    break
 
-    if not turnover:
-        turnover = "Not stated in supplied text"
+                turnover_lines.append(following)
 
-    # --------------------------------------------------
-    # 4. EXPERIENCE EXTRACTION
-    # --------------------------------------------------
+    turnover_lines = unique(turnover_lines)
 
-    experience_patterns = [
-        r"(?is)\bexperience(?:\s+requirement)?\s*[:\-]?\s*"
-        r"(.{0,250}?)(?=\n\s*(?:required\s+documents|"
-        r"documents|corrigendum|EMD|deadline|"
-        r"turnover)\b|\Z)",
-
-        r"(?is)\b(?:minimum\s+)?\d+\s+years?"
-        r"\s+of\s+experience\b"
-        r"([^\n\r]{0,200})",
-    ]
-
-    experience = None
-
-    for pattern in experience_patterns:
-        match = re.search(pattern, text)
-
-        if match:
-            candidate = clean(match.group(0))
-
-            if candidate:
-                experience = candidate[:300]
-                break
-
-    if not experience:
-        experience = "Not stated in supplied text"
+    turnover = (
+        " | ".join(turnover_lines)[:500]
+        if turnover_lines
+        else not_found
+    )
 
     # --------------------------------------------------
-    # 5. REQUIRED DOCUMENTS EXTRACTION
+    # 4. EXPERIENCE REQUIREMENT
+    # --------------------------------------------------
+
+    experience_lines = []
+
+    for line in text.splitlines():
+        if re.search(
+            r"(?i)\bexperience(?:\s+requirement)?\b",
+            line,
+        ):
+            experience_lines.append(clean(line))
+
+    for index, line in enumerate(lines):
+        if re.search(
+            r"(?i)\bexperience\s+requirement\b",
+            line,
+        ):
+            for following in lines[index + 1:index + 4]:
+                following = clean(following)
+
+                if not following:
+                    continue
+
+                if re.search(
+                    r"(?i)^(required documents|documents|"
+                    r"corrigendum|deadline|turnover)\s*:?",
+                    following,
+                ):
+                    break
+
+                experience_lines.append(following)
+
+    experience_lines = unique(experience_lines)
+
+    experience = (
+        " | ".join(experience_lines)[:500]
+        if experience_lines
+        else not_found
+    )
+
+    # --------------------------------------------------
+    # 5. REQUIRED DOCUMENTS
     # --------------------------------------------------
 
     documents = []
 
-    document_section_patterns = [
-        r"(?is)(?:required\s+documents|"
-        r"documents\s+required|"
-        r"list\s+of\s+documents|"
-        r"document\s+checklist|"
-        r"supporting\s+documents)\s*[:\-]?\s*"
-        r"(.*?)(?=\n\s*(?:corrigendum|"
-        r"amendments?|deadline|"
-        r"submission\s+deadline|"
+    document_heading = re.compile(
+        r"(?i)^\s*(?:required\s+documents|"
+        r"documents\s+required|list\s+of\s+documents|"
+        r"document\s+checklist|supporting\s+documents)"
+        r"\s*:?\s*$"
+    )
+
+    stop_heading = re.compile(
+        r"(?i)^\s*(?:corrigendum|amendments?|"
+        r"deadline|submission\s+deadline|"
         r"turnover\s+requirement|"
-        r"experience\s+requirement)\s*:?\s*(?:\n|$)|\Z)"
-    ]
+        r"experience\s+requirement)\s*:?"
+    )
 
-    document_section = None
+    in_document_section = False
 
-    for pattern in document_section_patterns:
-        match = re.search(pattern, text)
+    for raw_line in lines:
+        line = clean(raw_line)
 
-        if match:
-            document_section = match.group(1)
+        if not line:
+            continue
+
+        if document_heading.match(line):
+            in_document_section = True
+            continue
+
+        if in_document_section and stop_heading.match(line):
             break
 
-    if document_section:
-        for line in document_section.splitlines():
-            line = clean(line)
-
-            if not line:
-                continue
-
-            # Remove numbering such as 1., 2), or bullet symbols.
-            line = re.sub(
-                r"^\s*(?:(?:\d+|[a-zA-Z])[.)]\s*|[-*•]\s*)",
+        if in_document_section:
+            # Remove numbering such as 1., 2), or bullets.
+            item = re.sub(
+                r"^\s*(?:\d+\s*[.)]|[-*•])\s*",
                 "",
                 line,
             )
 
+            item = clean(item)
+
+            # Avoid interpreting a heading as a document.
+            if item and not re.match(
+                r"(?i)^(?:department|tender title|"
+                r"deadline|EMD|turnover requirement|"
+                r"experience requirement)\s*:",
+                item,
+            ):
+                documents.append(item[:250])
+
+    documents = unique(documents)
+
+    # If no explicit document section exists, extract
+    # lines containing common document-related keywords.
+    if not documents:
+        document_keywords = re.compile(
+            r"(?i)\b(?:registration certificate|PAN card|"
+            r"GST registration|Udyam registration|"
+            r"audited financial statements|"
+            r"turnover certificate|work orders?|"
+            r"work completion certificate|"
+            r"EMD payment proof|technical bid|"
+            r"financial bid|declaration|"
+            r"experience certificate|authorization letter|"
+            r"power of attorney|affidavit)\b"
+        )
+
+        for line in lines:
             line = clean(line)
 
-            if not line:
-                continue
-
-            # Ignore section labels rather than treating them as documents.
-            if re.match(
-                r"(?i)^(?:corrigendum|amendments?|deadline|"
-                r"turnover requirement|experience requirement)\s*:",
-                line,
-            ):
-                break
-
-            # Keep only sensible-length document entries.
-            if len(line) > 250:
-                line = line[:250].rstrip()
-
-            if line and line.lower() not in {
-                item.lower() for item in documents
-            }:
-                documents.append(line)
-
-    # Fallback: detect document-related clues across the whole notice.
-    # This does not guarantee a complete official checklist.
-    if not documents:
-        document_keywords = [
-            "company registration certificate",
-            "registration certificate",
-            "pan card",
-            "pan",
-            "gst registration certificate",
-            "gst registration",
-            "udyam registration",
-            "audited financial statements",
-            "financial statements",
-            "ca-certified turnover certificate",
-            "turnover certificate",
-            "work orders",
-            "work order",
-            "work completion certificates",
-            "work completion certificate",
-            "emd payment proof",
-            "technical bid",
-            "financial bid",
-            "declaration accepting tender conditions",
-            "declaration",
-            "experience certificate",
-            "authorization letter",
-            "power of attorney",
-            "affidavit",
-        ]
-
-        for line in text.splitlines():
-            line_clean = clean(line)
-
-            if not line_clean:
-                continue
-
-            normalized = line_clean.lower()
-
-            if any(keyword in normalized for keyword in document_keywords):
-                line_clean = re.sub(
-                    r"^\s*(?:(?:\d+|[a-zA-Z])[.)]\s*|[-*•]\s*)",
+            if document_keywords.search(line):
+                item = re.sub(
+                    r"^\s*(?:\d+\s*[.)]|[-*•])\s*",
                     "",
-                    line_clean,
+                    line,
                 )
 
-                if line_clean and line_clean.lower() not in {
-                    item.lower() for item in documents
-                }:
-                    documents.append(line_clean[:250])
+                if item:
+                    documents.append(item[:250])
+
+        documents = unique(documents)
 
     # --------------------------------------------------
-    # 6. CORRIGENDUM EXTRACTION
+    # 6. CORRIGENDUM
     # --------------------------------------------------
-
-    corrigendum_patterns = [
-        r"(?is)\bcorrigendum\b\s*[:\-]?\s*"
-        r"(.{0,400}?)(?=\n\s*(?:required\s+documents|"
-        r"documents|deadline|EMD|turnover|experience)\b|\Z)",
-
-        r"(?is)\b(?:amendment|amendments|"
-        r"tender\s+revised|revised\s+tender)\b"
-        r"([^\n\r]{0,300})",
-    ]
 
     corrigendum = None
 
-    for pattern in corrigendum_patterns:
-        match = re.search(pattern, text)
+    for index, line in enumerate(lines):
+        if re.search(r"(?i)\bcorrigendum\b", line):
+            collected = [clean(line)]
 
-        if match:
-            candidate = clean(match.group(0))
+            for following in lines[index + 1:index + 3]:
+                following = clean(following)
 
-            if candidate:
-                corrigendum = candidate[:400]
-                break
+                if not following:
+                    continue
+
+                if stop_heading.match(following):
+                    break
+
+                collected.append(following)
+
+            corrigendum = " | ".join(unique(collected))[:400]
+            break
 
     if not corrigendum:
         if re.search(
-            r"(?i)\b(?:corrigendum|amendment|"
-            r"amendments|revised\s+tender)\b",
+            r"(?i)\b(?:amendment|amendments|revised tender)\b",
             text,
         ):
             corrigendum = (
-                "Mentioned; check the official tender portal "
-                "for amendments and deadline changes."
+                "Amendment mentioned; check the official "
+                "tender portal for updates."
             )
         else:
-            corrigendum = "Not stated in supplied text"
+            corrigendum = not_found
 
     # --------------------------------------------------
-    # 7. FINAL RESULT
+    # 7. RETURN FINDINGS
     # --------------------------------------------------
 
     return {
