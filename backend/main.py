@@ -2,7 +2,10 @@ import os
 import re
 from datetime import datetime, timezone
 from typing import Any
-
+from html.parser import HTMLParser
+from datetime import timedelta
+from urllib.parse import urljoin
+from urllib.request import Request, urlopen
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
