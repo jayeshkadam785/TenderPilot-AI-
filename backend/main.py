@@ -296,74 +296,50 @@ def extract_findings(text: str) -> dict:
             emd = NOT_FOUND
 
     # -----------------------------------------------------
+      # -----------------------------------------------------
     # C. TURNOVER REQUIREMENT
     # -----------------------------------------------------
 
-    turnover_lines = []
+    turnover = NOT_FOUND
 
-    for index, line in enumerate(lines):
-        if re.search(r"(?i)\bturnover\b", line):
-            turnover_lines.append(clean(line))
-
-        elif re.search(r"(?i)\bturnover\s+requirement\b", line):
-            turnover_lines.append(clean(line))
-
-            for following in lines[index + 1:index + 4]:
-                following = clean(following)
-
-                if not following:
-                    continue
-
-                if re.search(
-                    r"(?i)^(experience|required documents|"
-                    r"corrigendum|deadline)\s*:?",
-                    following,
-                ):
-                    break
-
-                turnover_lines.append(following)
-
-    turnover_lines = unique(turnover_lines)
-
-    turnover = (
-        " | ".join(turnover_lines)[:500]
-        if turnover_lines
-        else NOT_FOUND
+    turnover_pattern = re.compile(
+        r"(?i)\b(?:minimum\s+annual\s+turnover"
+        r"|annual\s+turnover"
+        r"|minimum\s+turnover"
+        r"|turnover\s+requirement"
+        r"|turnover)"
+        r"\s*(?:of\s*)?[:=\-]?\s*"
+        r"((?:₹|Rs\.?|INR)?\s*"
+        r"[\d,]+(?:\.\d+)?"
+        r"(?:\s*(?:crores?|lakhs?|millions?|thousands?))?)"
     )
+
+    turnover_match = turnover_pattern.search(text)
+
+    if turnover_match:
+        turnover = clean(turnover_match.group(1))
 
     # -----------------------------------------------------
     # D. EXPERIENCE REQUIREMENT
     # -----------------------------------------------------
 
-    experience_lines = []
+    experience = NOT_FOUND
 
-    for index, line in enumerate(lines):
-        if re.search(r"(?i)\bexperience\b", line):
-            experience_lines.append(clean(line))
-
-        if re.search(r"(?i)\bexperience\s+requirement\b", line):
-            for following in lines[index + 1:index + 4]:
-                following = clean(following)
-
-                if not following:
-                    continue
-
-                if re.search(
-                    r"(?i)^(required documents|documents|"
-                    r"corrigendum|deadline|turnover)\s*:?",
-                    following,
-                ):
-                    break
-
-                experience_lines.append(following)
-
-    experience_lines = unique(experience_lines)
-
-    experience = (
-        " | ".join(experience_lines)[:500]
-        if experience_lines
-        else NOT_FOUND
+    experience_pattern = re.compile(
+        r"(?i)\b(?:minimum\s+experience"
+        r"|minimum\s+work\s+experience"
+        r"|similar[- ]work\s+experience"
+        r"|experience\s+requirement"
+        r"|experience)"
+        r"\s*(?:of\s*)?[:=\-]?\s*"
+        r"(\d+(?:\.\d+)?\s*"
+        r"(?:years?|yrs?|months?))"
     )
+
+    experience_match = experience_pattern.search(text)
+
+    if experience_match:
+        experience = clean(experience_match.group(1))
 
     # -----------------------------------------------------
     # E. REQUIRED DOCUMENTS
@@ -371,72 +347,63 @@ def extract_findings(text: str) -> dict:
 
     documents = []
 
-    document_heading = re.compile(
-        r"(?i)^\s*(?:"
-        r"required\s+documents"
+    document_pattern = re.compile(
+        r"(?i)\b(?:required\s+documents"
         r"|documents\s+required"
         r"|list\s+of\s+documents"
         r"|document\s+checklist"
-        r"|supporting\s+documents"
-        r")\s*:?\s*$"
+        r"|supporting\s+documents)"
+        r"\s*:\s*(.*?)"
+        r"(?=\b(?:corrigendum|amendment|"
+        r"bid\s+submission\s+deadline|"
+        r"submission\s+deadline)\b|$)"
     )
 
-    stop_heading = re.compile(
-        r"(?i)^\s*(?:"
-        r"corrigendum|amendments?|deadline"
-        r"|submission\s+deadline"
-        r"|turnover\s+requirement"
-        r"|experience\s+requirement"
-        r")\s*:?"
-    )
+    document_match = document_pattern.search(text)
 
-    in_document_section = False
+    if document_match:
+        document_text = document_match.group(1)
 
-    for raw_line in lines:
-        line = clean(raw_line)
+        items = re.split(
+            r"\s*(?:,|;|\n|\band\b)\s*",
+            document_text,
+            flags=re.IGNORECASE
+        )
 
-        if not line:
-            continue
-
-        if document_heading.match(line):
-            in_document_section = True
-            continue
-
-        if in_document_section and stop_heading.match(line):
-            break
-
-        if in_document_section:
+        for item in items:
             item = re.sub(
                 r"^\s*(?:\d+\s*[.)]|[-*•])\s*",
                 "",
-                line,
+                item
             )
 
             item = clean(item)
 
             if item:
-                documents.append(item[:250])
+                documents.append(item.rstrip("."))
 
-    # Fallback if no explicit document section was found.
+    # Fallback: search for known document names
     if not documents:
         document_keywords = re.compile(
-            r"(?i)\b(?:"
-            r"registration certificate|PAN card"
-            r"|GST registration|Udyam registration"
+            r"(?i)\b(?:GST registration certificate"
+            r"|GST registration|GST certificate"
+            r"|PAN card|PAN"
+            r"|company registration certificate"
+            r"|registration certificate"
+            r"|Udyam registration"
             r"|audited financial statements"
-            r"|turnover certificate|work orders?"
+            r"|turnover certificate"
+            r"|work order|work orders"
             r"|work completion certificate"
-            r"|EMD payment proof|technical bid"
-            r"|financial bid|declaration"
             r"|experience certificate"
-            r"|authorization letter|power of attorney"
-            r"|affidavit"
-            r")\b"
+            r"|EMD payment proof"
+            r"|technical bid|financial bid"
+            r"|declaration|authorization letter"
+            r"|power of attorney|affidavit)\b"
         )
 
-        for line in lines:
-            if document_keywords.search(line):
-                documents.append(clean(line)[:250])
+        for match in document_keywords.finditer(text):
+            documents.append(clean(match.group(0)))
 
     documents = unique(documents)[:50]
 
