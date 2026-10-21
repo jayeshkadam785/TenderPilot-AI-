@@ -1637,7 +1637,96 @@ function vEligibility() {
       logIt(`Feed check: ${S.feed.length} listing(s), ${ok} recommended`, "info", { step: "Feed", source: "Recommended feed" });
       S.view = "recommended"; render();
     },
-    demo: () => loadDemo(),
+    demo: () => loadDemo(),"fetch-live": async () => {
+  try {
+    toast("Fetching live government tenders...");
+
+    const query = S.f.q.trim();
+
+    const url =
+      "https://tender-pilot-ai-backend.vercel.app/api/tenders/live"
+      + "?limit=30"
+      + (query ? "&q=" + encodeURIComponent(query) : "");
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.detail || "Live tender fetching failed."
+      );
+    }
+
+    if (!Array.isArray(data.tenders) || !data.tenders.length) {
+      toast("No listings returned. Try another search.");
+      return;
+    }
+
+    const liveTenders = data.tenders.map((item, index) =>
+      mk({
+        id: "CPPP-" + String(item.id || index)
+          .replace(/[^a-zA-Z0-9_-]/g, "-")
+          .slice(0, 60),
+
+        title: item.title,
+
+        dept:
+          item.department ||
+          "Government of India CPPP",
+
+        category: item.category || "",
+
+        region: item.location || "India",
+
+        value: item.estimated_value ?? null,
+
+        closing: item.closing_date_iso || null,
+
+        notice:
+          "Public listing fetched from the government portal. "
+          + "Verify the complete official tender notice.",
+
+        sourceUrl:
+          item.source_url || data.source_url,
+
+        origin: "official_live_listing",
+
+        required: [],
+        files: []
+      })
+    );
+
+    // Replace previous live results but retain other saved tenders.
+    S.tenders = [
+      ...S.tenders.filter(
+        tender => tender.origin !== "official_live_listing"
+      ),
+      ...liveTenders
+    ];
+
+    logIt(
+      `Fetched ${liveTenders.length} public government tender listings.`,
+      "info",
+      {
+        step: "Live Tender Discovery",
+        source: data.source_name
+      }
+    );
+
+    render();
+
+    toast(
+      `Fetched ${liveTenders.length} public tender listings.`
+    );
+
+  } catch (error) {
+    console.error(error);
+
+    toast(
+      "Could not fetch live tenders. Check the backend deployment."
+    );
+  }
+},
     "feed-adopt": el => {
       const f = S.feed.find(x => x.fid === el.dataset.id);
       if (!f || !matchFeed(f).ok) { toast("This listing does not match your profile"); return; }
