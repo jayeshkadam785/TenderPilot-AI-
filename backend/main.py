@@ -505,7 +505,265 @@ def get_tenders():
         ),
     }
 
+# =========================================================
+# LIVE GOVERNMENT TENDER FETCHING
+# =========================================================
 
+LIVE_TENDER_SOURCE = (
+    "https://www.eprocure.gov.in/epublish/app?service=home"
+)
+
+
+class TenderHTMLParser(HTMLParser):
+    """Parse public tender tables from the government portal."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.rows = []
+        self.row = None
+        self.cell = None
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+
+        if tag == "tr":
+            self.row = []
+
+        elif tag in ("td", "th") and self.row is not None:
+            self.cell = {"text": [], "links": []}
+
+        elif tag == "a" and self.cell is not None:
+            href = attrs.get("href")
+            if href:
+                self.cell["links"].append(href)
+
+    def handle_data(self, data):
+        if self.cell is not None:
+            self.cell["text"].append(data)
+
+    def handle_endtag(self, tag):
+        if tag in ("td", "th") and self.cell is not None:
+            value = " ".join(
+                "".join(self.cell["text"]).split()
+            )
+
+            self.row.append({
+                "text": value,
+                "links": self.cell["links"]
+            })
+
+            self.cell = None
+
+        elif tag == "tr" and self.row is not None:
+            if self.row:
+                self.rows.append(self.row)
+
+            self.row = None
+            self.cell = None
+
+
+def parse_portal_date(value):
+    """Convert common government portal date formats."""
+
+    value = " ".join(str(value or "").split())
+
+    formats = [
+        "%d-%b-%Y %I:%M %p",
+        "%d-%B-%Y %I:%M %p",
+        "%d-%b-%Y",
+        "%d-%B-%Y",
+        "%d/%m/%Y %H:%M",
+        "%d/%m/%Y",
+        "%d-%m-%Y",
+    ]
+
+    for fmt in formats:
+        try:
+            parsed = datetime.strptime(value, fmt)
+
+            india_timezone = timezone(
+                timedelta(hours=5, minutes=30)
+            )
+
+            return parsed.replace(
+                tzinfo=india_timezone
+            ).isoformat()
+
+        except ValueError:
+            continue
+
+    return None
+
+
+def fetch_live_tenders(query="", limit=20):
+    """Fetch public tender listings from CPPP ePublishing."""
+
+    request = Request(
+        LIVE_TENDER_SOURCE,
+        headers={
+            "User-Agent": "TenderPilotAI/1.0",
+            "Accept": "text/html",
+        },
+    )
+
+    with urlopen(request, timeout=8) as response:
+        html = response.read(
+            2_500_000
+        ).decode("utf-8", errors="replace")
+
+    parser = TenderHTMLParser()
+    parser.feed(html)
+
+    rows = parser.rows
+
+    # Locate the tender table header.
+    header_index = None
+    columns = {}
+
+    for i, row in enumerate(rows):
+        labels = [
+            cell["text"].lower().strip()
+            for cell in row
+        ]
+
+        title_col = next(
+            (
+                j for j, label in enumerate(labels)
+                if "tender title" in label
+                or label == "title"
+            ),
+            None,
+        )
+
+        reference_col = next(
+            (
+                j for j, label in enumerate(labels)
+                if "reference no" in label
+                or "reference number" in label
+            ),
+            None,
+        )
+
+        closing_col = next(
+            (
+                j for j, label in enumerate(labels)
+                if "closing date" in label
+            ),
+            None,
+        )
+
+        if (
+            title_col is not None
+            and reference_col is not None
+            and closing_col is not None
+        ):
+            header_index = i
+
+            columns = {
+                "title": title_col,
+                "reference": reference_col,
+                "closing": closing_col,
+            }
+
+            break
+
+    if header_index is None:
+        raise ValueError(
+            "Could not identify the tender table on the portal."
+        )
+
+    results = []
+
+    for row in rows[header_index + 1:]:
+
+        if max(columns.values()) >= len(row):
+            continue
+
+        title_cell = row[columns["title"]]
+
+        title = title_cell["text"].strip()
+        reference = row[columns["reference"]]["text"].strip()
+        closing = row[columns["closing"]]["text"].strip()
+
+        if not title or not closing:
+            continue
+
+        if query and query.casefold() not in (
+            title + " " + reference
+        ).casefold():
+            continue
+
+        source_url = LIVE_TENDER_SOURCE
+
+        if title_cell["links"]:
+            candidate_url = urljoin(
+                LIVE_TENDER_SOURCE,
+                title_cell["links"][0],
+            )
+
+            if candidate_url.startswith(("https://", "http://")):
+                source_url = candidate_url
+
+        results.append({
+            "id": reference or f"CPPP-{len(results) + 1}",
+            "title": title,
+            "reference_number": reference or None,
+            "department": None,
+            "category": None,
+            "location": "India",
+            "estimated_value": None,
+            "closing_date": closing,
+            "closing_date_iso": parse_portal_date(closing),
+            "source_name": "Government of India CPPP",
+            "source_url": source_url,
+            "verified": False,
+        })
+
+        if len(results) >= limit:
+            break
+
+    return results
+
+
+@app.get("/api/tenders/live")
+def get_live_tenders(q: str = "", limit: int = 20):
+    """Return live public tender listings."""
+
+    limit = max(1, min(limit, 50))
+
+    try:
+        tenders = fetch_live_tenders(
+            query=q.strip(),
+            limit=limit,
+        )
+
+        return {
+            "success": True,
+            "mode": "live_public_portal_listing",
+            "source_name": "Government of India CPPP ePublishing",
+            "source_url": LIVE_TENDER_SOURCE,
+            "count": len(tenders),
+            "tenders": tenders,
+            "notice": (
+                "Public portal listings only. Verify the official "
+                "tender documents, eligibility, EMD and latest "
+                "corrigenda before making decisions."
+            ),
+        }
+
+    except Exception as error:
+        print(
+            "Live tender fetch error:",
+            type(error).__name__,
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Could not fetch live tenders from the government "
+                "portal. Please retry later or open the official source."
+            ),
+        )
 # =========================================================
 # 10. ANALYZE TENDER TEXT
 # =========================================================
