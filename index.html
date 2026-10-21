@@ -978,7 +978,9 @@
     };
     const seg = [["all", "All"], ["Potential match", "Potential match"], ["Review required", "Review required"], ["No match", "No match"]];
     return `<div class="page-h"><div><div class="eyebrow">Discovery</div><h1 class="h1">Tender explorer</h1><p class="sub">Every match shows its evidence. Nothing is marked complete without verification.</p></div>
-      <div class="row"><button class="btn" data-a="exp" data-k="tenders">${ic("doc", 15)} Export CSV</button><button class="btn" data-a="go" data-v="add">${ic("plus", 15)} Add tender</button><button class="btn primary" data-a="run">${ic("play", 14)} Run agent</button></div></div>
+      <div class="row"><button class="btn" data-a="exp" data-k="tenders">${ic("doc", 15)} Export CSV</button><button class="btn" data-a="go" data-v="add">${ic("plus", 15)} Add tender</button> <button class="btn primary" data-a="fetch-live">
+  Fetch Live Government Tenders
+</button><button class="btn primary" data-a="run">${ic("play", 14)} Run agent</button></div></div>
       <div class="demo"><span>Want to try the tool first? Load the labelled synthetic demo. It is not a real tender.</span><button class="btn sm" data-a="demo">Load synthetic demo</button></div>
       <div class="toolbar">
         <div class="seg" role="group" aria-label="Filter by match">${seg.map(([v, l]) => `<button aria-pressed="${S.f.status === v}" data-a="setf" data-k="status" data-v="${esc(v)}">${l} <span class="c">${counts[v] ?? 0}</span></button>`).join("")}</div>
