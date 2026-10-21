@@ -1,7 +1,7 @@
 import os
 import re
 from datetime import datetime, timezone
-from typing import Any
+from typing import Anydef extract_findings(
 from html.parser import HTMLParser
 from datetime import timedelta
 from urllib.parse import urljoin
@@ -301,6 +301,7 @@ def extract_findings(text: str) -> dict:
     # -----------------------------------------------------
     # -----------------------------------------------------
 ```python
+```python
     # -----------------------------------------------------
     # C. TURNOVER REQUIREMENT
     # -----------------------------------------------------
@@ -308,22 +309,37 @@ def extract_findings(text: str) -> dict:
     turnover = NOT_FOUND
 
     turnover_pattern = re.compile(
-        r"(?i)\b(?:minimum\s+annual\s+turnover"
+        r"(?i)\b(?:"
+        r"minimum\s+annual\s+turnover"
         r"|annual\s+turnover"
         r"|minimum\s+turnover"
         r"|turnover\s+requirement"
-        r"|turnover)"
-        r"\s*(?:of\s*)?[:=\-]?\s*"
-        r"(?:is\s*)?"
-        r"((?:₹|Rs\.?\s*|INR\s*)?"
-        r"[\d,]+(?:\.\d+)?"
-        r"(?:\s*(?:crores?|lakhs?|millions?|thousands?))?)"
+        r"|turnover"
+        r")\b"
+        r"[^.\n]{0,40}?"
+        r"(?:₹|Rs\.?|INR)?\s*"
+        r"([\d,]+(?:\.\d+)?)"
+        r"(?:\s*(crores?|lakhs?|millions?|thousands?))?"
     )
 
     turnover_match = turnover_pattern.search(text)
 
     if turnover_match:
-        turnover = clean(turnover_match.group(1))
+        amount = turnover_match.group(1)
+        unit = turnover_match.group(2) or ""
+        currency = ""
+
+        prefix = text[
+            max(0, turnover_match.start() - 10):
+            turnover_match.start()
+        ]
+
+        if re.search(r"₹|Rs\.?|INR", prefix, re.I):
+            currency = "Rs "
+
+        turnover = clean(
+            f"{currency}{amount} {unit}".strip()
+        )
 
     # -----------------------------------------------------
     # D. EXPERIENCE REQUIREMENT
@@ -332,13 +348,14 @@ def extract_findings(text: str) -> dict:
     experience = NOT_FOUND
 
     experience_pattern = re.compile(
-        r"(?i)\b(?:minimum\s+experience"
-        r"|minimum\s+work\s+experience"
+        r"(?i)\b(?:"
+        r"minimum\s+work\s+experience"
+        r"|minimum\s+experience"
         r"|similar[- ]work\s+experience"
         r"|experience\s+requirement"
-        r"|experience)"
-        r"\s*(?:of\s*)?[:=\-]?\s*"
-        r"(?:is\s*)?"
+        r"|experience"
+        r")\b"
+        r"[^.\n]{0,40}?"
         r"(\d+(?:\.\d+)?\s*"
         r"(?:years?|yrs?|months?))"
     )
@@ -355,15 +372,18 @@ def extract_findings(text: str) -> dict:
     documents = []
 
     document_pattern = re.compile(
-        r"(?is)\b(?:required\s+documents"
+        r"(?is)\b(?:"
+        r"required\s+documents"
         r"|documents\s+required"
         r"|list\s+of\s+documents"
         r"|document\s+checklist"
-        r"|supporting\s+documents)"
-        r"\s*:\s*(.*?)"
+        r"|supporting\s+documents"
+        r")\s*[:=\-]\s*(.*?)"
         r"(?=\b(?:corrigendum|amendment|"
         r"bid\s+submission\s+deadline|"
-        r"submission\s+deadline)\b|$)"
+        r"submission\s+deadline|"
+        r"minimum\s+annual\s+turnover|"
+        r"minimum\s+experience)\b|$)"
     )
 
     document_match = document_pattern.search(text)
@@ -391,27 +411,32 @@ def extract_findings(text: str) -> dict:
 
     if not documents:
         document_keywords = re.compile(
-            r"(?i)\b(?:GST registration certificate"
-            r"|GST registration|GST certificate"
-            r"|PAN card|PAN"
+            r"(?i)\b(?:"
+            r"GST certificate"
+            r"|GST registration certificate"
+            r"|PAN card"
             r"|company registration certificate"
-            r"|registration certificate"
             r"|Udyam registration"
             r"|audited financial statements"
             r"|turnover certificate"
-            r"|work order|work orders"
+            r"|work order"
             r"|work completion certificate"
             r"|experience certificate"
             r"|EMD payment proof"
-            r"|technical bid|financial bid"
-            r"|declaration|authorization letter"
-            r"|power of attorney|affidavit)\b"
+            r"|technical bid"
+            r"|financial bid"
+            r"|authorization letter"
+            r"|power of attorney"
+            r"|affidavit"
+            r")\b"
         )
 
         for match in document_keywords.finditer(text):
             documents.append(clean(match.group(0)))
 
     documents = unique(documents)[:50]
+```
+
 ```
 
     # -----------------------------------------------------
