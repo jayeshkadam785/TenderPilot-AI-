@@ -299,7 +299,9 @@ def extract_findings(text: str) -> dict:
             emd = NOT_FOUND
 
     # -----------------------------------------------------
-      # -----------------------------------------------------
+    # -----------------------------------------------------
+```python
+    # -----------------------------------------------------
     # C. TURNOVER REQUIREMENT
     # -----------------------------------------------------
 
@@ -312,7 +314,8 @@ def extract_findings(text: str) -> dict:
         r"|turnover\s+requirement"
         r"|turnover)"
         r"\s*(?:of\s*)?[:=\-]?\s*"
-        r"((?:₹|Rs\.?|INR)?\s*"
+        r"(?:is\s*)?"
+        r"((?:₹|Rs\.?\s*|INR\s*)?"
         r"[\d,]+(?:\.\d+)?"
         r"(?:\s*(?:crores?|lakhs?|millions?|thousands?))?)"
     )
@@ -335,6 +338,7 @@ def extract_findings(text: str) -> dict:
         r"|experience\s+requirement"
         r"|experience)"
         r"\s*(?:of\s*)?[:=\-]?\s*"
+        r"(?:is\s*)?"
         r"(\d+(?:\.\d+)?\s*"
         r"(?:years?|yrs?|months?))"
     )
@@ -351,7 +355,7 @@ def extract_findings(text: str) -> dict:
     documents = []
 
     document_pattern = re.compile(
-        r"(?i)\b(?:required\s+documents"
+        r"(?is)\b(?:required\s+documents"
         r"|documents\s+required"
         r"|list\s+of\s+documents"
         r"|document\s+checklist"
@@ -380,12 +384,11 @@ def extract_findings(text: str) -> dict:
                 item
             )
 
-            item = clean(item)
+            item = clean(item).rstrip(".")
 
             if item:
-                documents.append(item.rstrip("."))
+                documents.append(item)
 
-    # Fallback: search for known document names
     if not documents:
         document_keywords = re.compile(
             r"(?i)\b(?:GST registration certificate"
@@ -409,6 +412,7 @@ def extract_findings(text: str) -> dict:
             documents.append(clean(match.group(0)))
 
     documents = unique(documents)[:50]
+```
 
     # -----------------------------------------------------
     # F. CORRIGENDUM / AMENDMENTS
