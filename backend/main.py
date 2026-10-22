@@ -438,17 +438,23 @@ def extract_findings(text: str) -> dict:
 ```
 
   ```python
+```python
     # -----------------------------------------------------
     # F. CORRIGENDUM / AMENDMENTS
     # -----------------------------------------------------
 
     corrigendum = None
 
+    stop_heading = re.compile(
+        r"(?i)^(?:deadline|bid submission|submission deadline|"
+        r"minimum annual turnover|minimum experience|"
+        r"required documents|eligibility criteria)\b"
+    )
+
     for index, line in enumerate(lines):
         if re.search(r"(?i)\b(?:corrigendum|amendment|amendments)\b", line):
             collected = []
 
-            # Keep the corrigendum heading and its relevant text.
             heading_match = re.search(
                 r"(?i)\b(?:corrigendum|amendment|amendments)\b\s*[:\-]?\s*(.*)",
                 line,
@@ -456,23 +462,16 @@ def extract_findings(text: str) -> dict:
 
             if heading_match:
                 heading_text = clean(heading_match.group(1))
-
                 if heading_text:
                     collected.append(heading_text)
 
-            # If the heading has no details, inspect the next lines.
             for following in lines[index + 1:index + 4]:
                 following = clean(following)
 
                 if not following:
                     continue
 
-                if re.match(
-                    r"(?i)^(?:deadline|bid submission|submission deadline|"
-                    r"minimum annual turnover|minimum experience|"
-                    r"required documents|eligibility criteria)\b",
-                    following,
-                ):
+                if stop_heading.match(following):
                     break
 
                 collected.append(following)
@@ -488,8 +487,18 @@ def extract_findings(text: str) -> dict:
             break
 
     if not corrigendum:
-        corrigendum = NOT_FOUND
+        if re.search(
+            r"(?i)\b(?:amendment|amendments|revised tender)\b",
+            text,
+        ):
+            corrigendum = (
+                "Amendment mentioned. Check the latest official "
+                "tender notice and corrigendum."
+            )
+        else:
+            corrigendum = NOT_FOUND
 ```
+
     # -----------------------------------------------------
     # G. RETURN ANALYSIS
     # -----------------------------------------------------
