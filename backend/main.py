@@ -1,5 +1,8 @@
 import os
 import re
+import csv
+import io
+from fastapi.responses import Response
 from datetime import datetime, timezone, timedelta
 from typing import Any              
 from html.parser import HTMLParser 
@@ -1248,3 +1251,94 @@ def eligibility_match(
                 "Check the supplied profile and tender records."
             )
         )
+        # =========================================================
+# DOCUMENT CHECKLIST API
+# =========================================================
+
+@app.post("/api/documents/checklist")
+def document_checklist(request: AnalyzeRequest):
+    findings = extract_findings(request.text)
+    documents = findings.get("documents", [])
+
+    return {
+        "success": True,
+        "agent": "Tender Document Checklist Agent",
+        "mode": "RULE_BASED_PRELIMINARY_CHECK",
+        "count": len(documents),
+        "documents": [
+            {
+                "document": name,
+                "status": "mentioned_in_text",
+                "verified": False
+            }
+            for name in documents
+        ],
+        "notice": (
+            "This endpoint extracts document names from supplied text. "
+            "It does not verify uploaded files."
+        )
+    }
+
+
+# =========================================================
+# CORRIGENDUM DEMO API
+# =========================================================
+
+@app.get("/api/corrigendum/demo")
+def corrigendum_demo():
+    return {
+        "success": True,
+        "agent": "Corrigendum Monitoring Agent",
+        "mode": "SYNTHETIC_DEMO",
+        "tender_id": "TP-DEMO-003",
+        "previous_deadline": "2026-12-20",
+        "revised_deadline": "2026-12-25",
+        "change_detected": True,
+        "message": "Demo deadline change detected.",
+        "verified": False,
+        "notice": (
+            "Synthetic demonstration only. "
+            "Check the official tender portal for actual corrigenda."
+        )
+    }
+
+
+# =========================================================
+# CSV TENDER EXPORT API
+# =========================================================
+
+@app.get("/api/tenders/export")
+def export_tenders_csv():
+    output = io.StringIO()
+
+    columns = [
+        "id",
+        "title",
+        "department",
+        "location",
+        "estimated_value",
+        "emd",
+        "deadline",
+        "category",
+        "status",
+        "source",
+        "verified"
+    ]
+
+    writer = csv.DictWriter(
+        output,
+        fieldnames=columns,
+        extrasaction="ignore"
+    )
+
+    writer.writeheader()
+    writer.writerows(DEMO_TENDERS)
+
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition":
+                "attachment; filename=tenderpilot-tenders.csv"
+        }
+    )
