@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any              
 from html.parser import HTMLParser 
 from urllib.parse import urljoin
-from urllib.request import Request, urlopen
+from urllib.request import Request, urlopen 
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
