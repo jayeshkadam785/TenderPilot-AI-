@@ -488,7 +488,6 @@ def extract_findings(text: str) -> dict:
             )
         else:
             corrigendum = NOT_FOUND
-```
 
     # -----------------------------------------------------
     # G. RETURN ANALYSIS
