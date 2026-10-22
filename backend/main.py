@@ -1011,42 +1011,122 @@ def score_tender_for_business(
             "Tender value is outside your selected budget."
         )
 
-    # 4. TURNOVER
-    # The demo records have no verified turnover thresholds.
+   ```python
+    # 4. TURNOVER REQUIREMENT
 
-    add_check(
-        "Annual turnover",
-        "not_verified",
-        "Compare business turnover with the official tender clause.",
-        10
-    )
-
-    if profile.annual_turnover is None:
-        warnings.append(
-            "Business annual turnover was not provided."
+    try:
+        required_turnover = tender.get("minimum_turnover")
+        required_turnover = (
+            float(required_turnover)
+            if required_turnover is not None
+            else None
         )
+    except (TypeError, ValueError):
+        required_turnover = None
+
+    if required_turnover is None:
+        add_check(
+            "Annual turnover",
+            "not_verified",
+            "Minimum turnover requirement is not available in the supplied tender record.",
+            5
+        )
+        warnings.append(
+            "Verify the minimum turnover requirement in the official tender."
+        )
+
+    elif profile.annual_turnover is None:
+        add_check(
+            "Annual turnover",
+            "unknown",
+            f"Required turnover: Rs {required_turnover:,.0f}. Business turnover not provided.",
+            0
+        )
+        warnings.append(
+            "Provide annual turnover to check this requirement."
+        )
+
+    elif profile.annual_turnover >= required_turnover:
+        add_check(
+            "Annual turnover",
+            "match",
+            f"Business turnover Rs {profile.annual_turnover:,.0f} meets the stated minimum Rs {required_turnover:,.0f}.",
+            10
+        )
+        reasons.append(
+            "Provided annual turnover meets the stated minimum."
+        )
+
     else:
+        add_check(
+            "Annual turnover",
+            "below_requirement",
+            f"Business turnover Rs {profile.annual_turnover:,.0f} is below the stated minimum Rs {required_turnover:,.0f}.",
+            0
+        )
         warnings.append(
-            "Verify the official minimum turnover requirement."
+            "Business turnover is below the stated minimum requirement."
         )
 
-    # 5. EXPERIENCE
+    # 5. SIMILAR-WORK EXPERIENCE
 
-    add_check(
-        "Similar-work experience",
-        "not_verified",
-        "Compare experience with the official tender clause.",
-        10
-    )
-
-    if profile.similar_work_years is None:
-        warnings.append(
-            "Similar-work experience was not provided."
+    try:
+        required_experience = tender.get(
+            "minimum_experience_years"
         )
+        required_experience = (
+            float(required_experience)
+            if required_experience is not None
+            else None
+        )
+    except (TypeError, ValueError):
+        required_experience = None
+
+    if required_experience is None:
+        add_check(
+            "Similar-work experience",
+            "not_verified",
+            "Minimum experience requirement is not available in the supplied tender record.",
+            5
+        )
+        warnings.append(
+            "Verify the minimum experience requirement in the official tender."
+        )
+
+    elif profile.similar_work_years is None:
+        add_check(
+            "Similar-work experience",
+            "unknown",
+            f"Required experience: {required_experience:g} years. Business experience not provided.",
+            0
+        )
+        warnings.append(
+            "Provide similar-work experience to check this requirement."
+        )
+
+    elif profile.similar_work_years >= required_experience:
+        add_check(
+            "Similar-work experience",
+            "match",
+            f"Provided experience {profile.similar_work_years:g} years meets the stated minimum {required_experience:g} years.",
+            10
+        )
+        reasons.append(
+            "Provided similar-work experience meets the stated minimum."
+        )
+
     else:
-        warnings.append(
-            "Verify the official experience requirement."
+        add_check(
+            "Similar-work experience",
+            "below_requirement",
+            f"Provided experience {profile.similar_work_years:g} years is below the stated minimum {required_experience:g} years.",
+            0
         )
+        warnings.append(
+            "Similar-work experience is below the stated minimum requirement."
+        )
+
+```
 
     # 6. MSME REGISTRATION
 
