@@ -432,12 +432,7 @@ python
             documents.append(clean(match.group(0)))
 
     documents = unique(documents)[:50]
-```
 
-```
-
-  ```python
-```python
     # -----------------------------------------------------
     # F. CORRIGENDUM / AMENDMENTS
     # -----------------------------------------------------
