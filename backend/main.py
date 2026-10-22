@@ -440,22 +440,13 @@ def extract_findings(text: str) -> dict:
     # -----------------------------------------------------
     # F. CORRIGENDUM / AMENDMENTS
     # -----------------------------------------------------
-
-    corrigendum = None
-
-    for index, line in enumerate(lines):
-        if re.search(r"(?i)\bcorrigendum\b", line):
-            collected = [clean(line)]
-
-            for following in lines[index + 1:index + 3]:
-                following = clean(following)
-
-                if not following:
-                    continue
-
-                if stop_heading.match(following):
-                    break
-
+if re.match(
+    r"(?i)^(?:deadline|bid submission|submission deadline|"
+    r"minimum annual turnover|minimum experience|"
+    r"required documents|eligibility criteria)\b",
+    following,
+):
+    break
                 collected.append(following)
 
             corrigendum = " | ".join(unique(collected))[:400]
