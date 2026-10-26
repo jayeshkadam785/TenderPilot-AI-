@@ -572,7 +572,7 @@
       mk({ id: "DEMO-4", title: "Cloud hosting renewal", dept: "State IT Department", category: "IT services", region: "Maharashtra", value: 800000, closing: d(14), origin: "synthetic", notice: "EMD of Rs. 24,000 must accompany the bid. Submit online.", required: ["Tender_Notice", "Annexure_A"], files: ["Tender_Notice", "Annexure_A"] })
     );
     logIt("Loaded 4 synthetic demo tenders for testing (labelled SYNTHETIC)", "info", { step: "Setup", source: "Synthetic demo" });
-    toast("history");
+    toast("Synthetic sample tenders loaded automatically");
     render();
   }
 
@@ -751,7 +751,13 @@
       setSync("error", "Offline");
       toast("Supabase not reachable. Using this browser's copy.");
     }
+    // Automatically load clearly labelled synthetic sample tenders only when the workspace is empty.
+    // Existing saved tenders are preserved and never overwritten.
+    if (!S.tenders.length) {
+      loadDemo();
+    }
     STORE.ready = true;
+    persist();
     render();
   }
 
@@ -905,9 +911,9 @@
         <div style="position:relative;z-index:1">
           <div class="eyebrow" style="color:rgba(255,255,255,.8)">${new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</div>
           <h2>${greet}, ${esc(name)}</h2>
-          <p>${S.tenders.length ? `${attention.length} tender${attention.length === 1 ? "" : "s"} need your attention and ${pending.length} approval${pending.length === 1 ? " is" : "s are"} waiting for you.` : "Set up your profile, add a tender or load the demo to see matches, deadlines and document packs here."}</p>
+          <p>${S.tenders.length ? `${attention.length} tender${attention.length === 1 ? "" : "s"} need your attention and ${pending.length} approval${pending.length === 1 ? " is" : "s are"} waiting for you.` : "Set up your profile or add a tender to see matches, deadlines and document packs here."}</p>
           <div class="row" style="margin-top:20px;gap:10px">
-            ${S.tenders.length ? `<button class="btn" data-a="run">${ic("play", 14)} Run agent</button>` : `<button class="btn" data-a="go" data-v="add">${ic("plus", 14)} Add tender</button><button class="btn ghost" data-a="demo">Load synthetic demo</button>`}
+            ${S.tenders.length ? `<button class="btn" data-a="run">${ic("play", 14)} Run agent</button>` : `<button class="btn" data-a="go" data-v="add">${ic("plus", 14)} Add tender</button>`}
             <button class="btn ghost" data-a="go" data-v="tenders">Browse tenders</button>
           </div>
         </div>
@@ -982,7 +988,6 @@
       <div class="row"><button class="btn" data-a="exp" data-k="tenders">${ic("doc", 15)} Export CSV</button><button class="btn" data-a="go" data-v="add">${ic("plus", 15)} Add tender</button> <button class="btn primary" data-a="fetch-live">
   Fetch Live Government Tenders
 </button><button class="btn primary" data-a="run">${ic("play", 14)} Run agent</button></div></div>
-      <div class="demo"><span>Want to try the tool first? Load the labelled synthetic demo. It is not a real tender.</span><button class="btn sm" data-a="demo">Load synthetic demo</button></div>
       <div class="toolbar">
         <div class="seg" role="group" aria-label="Filter by match">${seg.map(([v, l]) => `<button aria-pressed="${S.f.status === v}" data-a="setf" data-k="status" data-v="${esc(v)}">${l} <span class="c">${counts[v] ?? 0}</span></button>`).join("")}</div>
         <div class="row"><div class="search">${ic("search", 15)}<input class="search-input" type="search" placeholder="Search title or department" data-f="q" value="${esc(S.f.q)}" aria-label="Search tenders" /></div>
@@ -1522,7 +1527,7 @@ function vEligibility() {
   function vCompare() {
     const opts = S.tenders.map(t => `<option value="${esc(t.id)}">${esc(t.id)} — ${esc(t.title)}</option>`).join("");
     return `<div class="page-h"><div><div class="eyebrow">Decision support</div><h1 class="h1">Tender comparison</h1><p class="sub">Compare two saved tenders side-by-side before deciding which deserves further review.</p></div></div>
-      ${S.tenders.length < 2 ? `<div class="callout info"><div class="ci">${ic("info",15)}</div><div>Add at least two tenders or load the synthetic demo to use comparison.</div></div>` : `<form id="compareForm" class="card card-b stack"><div class="form"><label class="fl">Tender A<select class="inp" name="a">${opts}</select></label><label class="fl">Tender B<select class="inp" name="b">${opts}</select></label></div><div class="row" style="justify-content:flex-end"><button class="btn primary" type="submit">Compare tenders</button></div></form>${S.compareHtml || `<div class="card card-b"><div class="empty"><b>Choose two tenders</b><span>Comparison will show deadline, value, eligibility, documents, EMD and source evidence.</span></div></div>`}`}`;
+      ${S.tenders.length < 2 ? `<div class="callout info"><div class="ci">${ic("info",15)}</div><div>Add at least two tenders to use comparison.</div></div>` : `<form id="compareForm" class="card card-b stack"><div class="form"><label class="fl">Tender A<select class="inp" name="a">${opts}</select></label><label class="fl">Tender B<select class="inp" name="b">${opts}</select></label></div><div class="row" style="justify-content:flex-end"><button class="btn primary" type="submit">Compare tenders</button></div></form>${S.compareHtml || `<div class="card card-b"><div class="empty"><b>Choose two tenders</b><span>Comparison will show deadline, value, eligibility, documents, EMD and source evidence.</span></div></div>`}`}`;
   }
 
   function vIntegrations() {
@@ -1638,7 +1643,7 @@ function vEligibility() {
       logIt(`Feed check: ${S.feed.length} listing(s), ${ok} recommended`, "info", { step: "Feed", source: "Recommended feed" });
       S.view = "recommended"; render();
     },
-    demo: () => loadDemo(),"fetch-live": async () => {
+    "fetch-live": async () => {
   try {
     toast("Fetching live government tenders...");
 
