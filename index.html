@@ -559,6 +559,7 @@
     S.runs.unshift({ id: runId, at: new Date(), count: S.tenders.length });
     toast(`${runId} complete`);
     render();
+    
   }
 
   function loadDemo() {
@@ -571,7 +572,7 @@
       mk({ id: "DEMO-4", title: "Cloud hosting renewal", dept: "State IT Department", category: "IT services", region: "Maharashtra", value: 800000, closing: d(14), origin: "synthetic", notice: "EMD of Rs. 24,000 must accompany the bid. Submit online.", required: ["Tender_Notice", "Annexure_A"], files: ["Tender_Notice", "Annexure_A"] })
     );
     logIt("Loaded 4 synthetic demo tenders for testing (labelled SYNTHETIC)", "info", { step: "Setup", source: "Synthetic demo" });
-    toast("Synthetic demo loaded");
+    toast("history");
     render();
   }
 
